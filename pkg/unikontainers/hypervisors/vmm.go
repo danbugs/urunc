@@ -66,6 +66,12 @@ var vmmFactories = map[VmmType]VMMFactory{
 			return &CloudHypervisor{binary: binary, binaryPath: binaryPath}
 		},
 	},
+	HyperlightVmm: {
+		binary: HyperlightBinary,
+		createFunc: func(binary, binaryPath string, _ bool) types.VMM {
+			return &Hyperlight{binary: binary, binaryPath: binaryPath}
+		},
+	},
 }
 
 func NewVMM(vmmType VmmType, monitors map[string]types.MonitorConfig) (vmm types.VMM, err error) {
@@ -98,6 +104,9 @@ func NewVMM(vmmType VmmType, monitors map[string]types.MonitorConfig) (vmm types
 }
 
 func getVMMPath(vmmType VmmType, binary string, monitors map[string]types.MonitorConfig) (string, error) {
+	if vmmType == HyperlightVmm {
+		return "", nil
+	}
 	if vmmPath := monitors[string(vmmType)].BinaryPath; vmmPath != "" {
 		return vmmPath, nil
 	}
