@@ -104,9 +104,6 @@ func NewVMM(vmmType VmmType, monitors map[string]types.MonitorConfig) (vmm types
 }
 
 func getVMMPath(vmmType VmmType, binary string, monitors map[string]types.MonitorConfig) (string, error) {
-	if vmmType == HyperlightVmm {
-		return "", nil
-	}
 	if vmmPath := monitors[string(vmmType)].BinaryPath; vmmPath != "" {
 		return vmmPath, nil
 	}

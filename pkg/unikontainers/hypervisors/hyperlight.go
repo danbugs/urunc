@@ -15,14 +15,14 @@
 package hypervisors
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
 )
 
 const (
 	HyperlightVmm    VmmType = "hyperlight"
-	HyperlightBinary string  = ""
+	HyperlightBinary string  = "hyperlight-unikraft"
 )
 
 type Hyperlight struct {
@@ -50,17 +50,20 @@ func (h *Hyperlight) Path() string {
 	return h.binaryPath
 }
 
-// Ok checks if the hyperlight binary is available.
-// Since hyperlight is embedded, we just return nil.
+// Ok checks if the hyperlight-unikraft binary is available.
+// Binary availability is already verified by getVMMPath via exec.LookPath.
 func (h *Hyperlight) Ok() error {
 	return nil
 }
 
+// BuildExecCmd constructs the hyperlight-unikraft command line.
 func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, _ types.Unikernel) ([]string, error) {
-	// Hyperlight is an embedded VMM, so we just run the unikernel directly.
-	cmdArgs := []string{args.UnikernelPath}
-	if args.Command != "" {
-		cmdArgs = append(cmdArgs, strings.Split(args.Command, " ")...)
+	cmdArgs := []string{h.binaryPath, args.UnikernelPath}
+	if args.InitrdPath != "" {
+		cmdArgs = append(cmdArgs, "--initrd", args.InitrdPath)
+	}
+	if args.MemSizeB > 0 {
+		cmdArgs = append(cmdArgs, "--memory", fmt.Sprintf("%d", args.MemSizeB))
 	}
 	return cmdArgs, nil
 }
