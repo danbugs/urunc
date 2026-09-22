@@ -731,3 +731,73 @@ func TestNewAnnotationsSanity(t *testing.T) {
 		assert.ErrorIs(t, err, ErrNotUnikernel, "Expected ErrNotUnikernel for a plain container")
 	})
 }
+
+// The unikernel binary is mandatory for every monitor that boots it, but
+// hyperlight-unikraft embeds its own kernel, so an image may leave it out.
+// validate() sees the hypervisor as the spec spells it and as urunc.json
+// does, base64-encoded, and must tell both apart from the other monitors.
+func TestValidateUnikernelBinaryRequirement(t *testing.T) {
+	t.Parallel()
+
+	encode := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
+	testCases := []struct {
+		name       string
+		hypervisor string
+		binary     string
+		wantErr    bool
+	}{
+		{"qemu requires a binary", string(hypervisors.QemuVmm), "", true},
+		{"firecracker requires a binary", string(hypervisors.FirecrackerVmm), "", true},
+		{"qemu with a binary", string(hypervisors.QemuVmm), "/unikernel/app", false},
+		{"hyperlight-unikraft boots its embedded kernel without one", string(hypervisors.HyperlightVmm), "", false},
+		{"hyperlight-unikraft boots a kernel from the image instead", string(hypervisors.HyperlightVmm), "/unikernel/kernel", false},
+		{"encoded qemu, as in urunc.json, requires a binary", encode(string(hypervisors.QemuVmm)), "", true},
+		{"encoded hyperlight-unikraft, as in urunc.json, does not", encode(string(hypervisors.HyperlightVmm)), "", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			conf := &UnikernelConfig{
+				UnikernelType:   unikernels.UnikraftUnikernel,
+				Hypervisor:      tc.hypervisor,
+				UnikernelBinary: tc.binary,
+			}
+			err := conf.validate()
+			if tc.wantErr {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, annotBinary)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+// What urunc does with an image whose annotations name a type and a monitor
+// but no binary must not change for the monitors that need one: such a
+// container is not a unikernel one and goes to runc, as before.
+func TestNewWithoutBinary(t *testing.T) {
+	t.Parallel()
+
+	t.Run("qemu without a binary still falls back to runc", func(t *testing.T) {
+		t.Parallel()
+		annots := validAnnots()
+		delete(annots, annotBinary)
+
+		_, err := New(writeBundle(t, annots), "test-container", t.TempDir(), defaultUruncConfig())
+		assert.ErrorIs(t, err, ErrNotUnikernel, "Expected ErrNotUnikernel without a binary on qemu")
+	})
+
+	t.Run("hyperlight-unikraft without a binary is a unikernel container", func(t *testing.T) {
+		t.Parallel()
+		annots := validAnnots()
+		delete(annots, annotBinary)
+		annots[annotHypervisor] = string(hypervisors.HyperlightVmm)
+		annots[annotInitrd] = "/unikernel/initrd.cpio"
+
+		u, err := New(writeBundle(t, annots), "test-container", t.TempDir(), defaultUruncConfig())
+		assert.NoError(t, err, "Expected New to succeed without a binary on hyperlight-unikraft")
+		assert.Equal(t, "", u.State.Annotations[annotBinary])
+	})
+}
