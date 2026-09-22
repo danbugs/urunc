@@ -15,6 +15,9 @@
 package unikontainers
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -23,6 +26,7 @@ import (
 
 	"github.com/urunc-dev/urunc/pkg/unikontainers/hypervisors"
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
+	"github.com/urunc-dev/urunc/pkg/unikontainers/unikernels"
 )
 
 func TestConfineBlockSources(t *testing.T) {
@@ -148,4 +152,50 @@ func TestGuestMemory(t *testing.T) {
 			assert.Equal(t, tt.expected, monitorMemoryBytes(defaultMem, tt.resources))
 		})
 	}
+}
+
+// A command that the guest of hyperlight-unikraft would split differently is
+// refused when the container is created; other monitors are not affected.
+func TestNewRefusesHyperlightCommandThatWouldBeSplit(t *testing.T) {
+	t.Parallel()
+
+	shellArgs := []string{"sh", "-c", "echo hi && sleep 1"}
+
+	t.Run("hyperlight-unikraft", func(t *testing.T) {
+		t.Parallel()
+		annots := validAnnots()
+		annots[annotHypervisor] = string(hypervisors.HyperlightVmm)
+		annots[annotInitrd] = "/unikernel/initrd.cpio"
+
+		_, err := New(writeBundleWithArgs(t, annots, shellArgs), "test-container", t.TempDir(), defaultUruncConfig())
+		assert.ErrorIs(t, err, unikernels.ErrHyperlightCommand)
+
+		_, err = New(writeBundleWithArgs(t, annots, []string{"/app/server", "--port=8080"}), "test-container", t.TempDir(), defaultUruncConfig())
+		assert.NoError(t, err)
+	})
+
+	t.Run("qemu", func(t *testing.T) {
+		t.Parallel()
+		_, err := New(writeBundleWithArgs(t, validAnnots(), shellArgs), "test-container", t.TempDir(), defaultUruncConfig())
+		assert.NoError(t, err)
+	})
+}
+
+// writeBundleWithArgs writes a bundle like writeBundle, whose process runs argv.
+func writeBundleWithArgs(t *testing.T, annots map[string]string, argv []string) string {
+	t.Helper()
+
+	bundle := t.TempDir()
+	spec := specs.Spec{
+		Version:     specs.Version,
+		Process:     &specs.Process{Args: argv},
+		Linux:       &specs.Linux{},
+		Root:        &specs.Root{Path: rootfsDirName},
+		Annotations: annots,
+	}
+	data, err := json.Marshal(spec)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(bundle, configFilename), data, 0600))
+
+	return bundle
 }

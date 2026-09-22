@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"unicode"
 
 	version "github.com/hashicorp/go-version"
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
@@ -28,6 +29,10 @@ const UnikraftUnikernel string = "unikraft"
 const UnikraftCompatVersion string = "0.16.1"
 
 const defaultDNSServer string = "8.8.8.8"
+
+// hyperlightMonitor is the monitor that takes the guest command as an hluk
+// option rather than through the kernel command line.
+const hyperlightMonitor string = "hyperlight-unikraft"
 
 var ErrUndefinedVersion = errors.New("version is undefined, using default version")
 var ErrVersionParsing = errors.New("failed to parse provided version, using default version")
@@ -108,9 +113,75 @@ func (u *Unikraft) MonitorSharedfsCli(fsType string, path string) []string {
 	}
 }
 
-// There are no generic CLI hypervisor options for Unikraft yet.
+// MonitorCli returns the hluk options that stand in for the kernel command
+// line on hyperlight-unikraft. hluk boots its own embedded kernel, so what
+// the other monitors read from CommandString is handed to it as options
+// instead. Each value is attached with "=", so that clap reads it as one
+// argument and a command starting with a dash can never become an hluk
+// option of its own.
 func (u *Unikraft) MonitorCli() types.MonitorCliArgs {
-	return types.MonitorCliArgs{}
+	if u.Monitor != hyperlightMonitor {
+		return types.MonitorCliArgs{}
+	}
+
+	var args []string
+	// An empty command leaves the guest to its conventional entrypoint
+	// (/entrypoint.py, /entrypoint, ...), which hluk resolves itself.
+	if u.Command != "" {
+		args = append(args, "--guest-exec="+u.Command)
+	}
+
+	return types.MonitorCliArgs{OtherArgs: args}
+}
+
+// hluk takes the guest command as a single string, which the runtime driver
+// in the guest splits back into argv: on whitespace, with no quoting, into at
+// most 63 arguments and fewer than 4096 bytes (the exec driver), or the way
+// a POSIX shell would, quotes and backslashes included (the Python driver).
+// A command survives that round trip unchanged only within these bounds.
+const (
+	hyperlightMaxArgs     = 63
+	hyperlightMaxCmdBytes = 4095
+)
+
+// splitsHyperlightArg reports whether a guest driver would not read r as part
+// of an argument: whitespace splits it (the Node.js driver splits on any
+// Unicode space, byte order mark included), and a quote or a backslash is
+// taken as quoting by the Python driver.
+func splitsHyperlightArg(r rune) bool {
+	return unicode.IsSpace(r) || r == 0xFEFF || r == '\'' || r == '"' || r == '\\'
+}
+
+var ErrHyperlightCommand = errors.New("the command cannot be passed to hyperlight-unikraft unchanged")
+
+// ValidateHyperlightCommand refuses a container command that the guest of
+// hyperlight-unikraft would not run as given. The command reaches the guest
+// as one string, joined with spaces and split again there, so an argument
+// that is empty or holds whitespace, a quote or a backslash would come out
+// as different arguments, and arguments past the driver's limits would be
+// dropped or the command refused. Rejecting it when the container is
+// created beats running something other than what was asked.
+func ValidateHyperlightCommand(argv []string) error {
+	if len(argv) > hyperlightMaxArgs {
+		return fmt.Errorf("%w: %d arguments, at most %d are supported", ErrHyperlightCommand, len(argv), hyperlightMaxArgs)
+	}
+	cmdLen := 0
+	for i, arg := range argv {
+		if arg == "" {
+			return fmt.Errorf("%w: argument %d is empty", ErrHyperlightCommand, i)
+		}
+		if strings.ContainsFunc(arg, splitsHyperlightArg) {
+			return fmt.Errorf("%w: argument %d (%q) contains whitespace, a quote or a backslash", ErrHyperlightCommand, i, arg)
+		}
+		cmdLen += len(arg)
+	}
+	if len(argv) > 1 {
+		cmdLen += len(argv) - 1
+	}
+	if cmdLen > hyperlightMaxCmdBytes {
+		return fmt.Errorf("%w: %d bytes, at most %d are supported", ErrHyperlightCommand, cmdLen, hyperlightMaxCmdBytes)
+	}
+	return nil
 }
 
 func (u *Unikraft) Init(data types.UnikernelParams) error {

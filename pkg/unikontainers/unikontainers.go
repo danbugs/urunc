@@ -100,6 +100,14 @@ func New(bundlePath string, containerID string, rootDir string, cfg *UruncConfig
 	if err != nil {
 		return nil, err
 	}
+	// hluk hands the command to the guest as one string that the guest
+	// splits again, so refuse a command that would not come out as given.
+	if hypervisors.VmmType(config.Hypervisor) == hypervisors.HyperlightVmm && spec.Process != nil {
+		err = unikernels.ValidateHyperlightCommand(spec.Process.Args)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// vAccel should be explicitly enabled to accept vAccel annotations.
 	// Otherwise fail execution.
 	if config.VAccel != "" && !cfg.Runtime.VAccel {
