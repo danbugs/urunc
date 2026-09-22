@@ -74,9 +74,17 @@ func (h *Hyperlight) Signal(pid int, signal unix.Signal) error {
 // unikernel asks for through MonitorCli, such as the guest command. hluk
 // embeds a Unikraft kernel of its own, so the unikernel binary is passed as
 // --kernel, which boots it in place of the embedded one, and an image
-// without one is left to the embedded kernel.
+// without one is left to the embedded kernel. An image that ships a saved
+// snapshot is resumed instead of booted.
 func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) ([]string, error) {
 	extraMonArgs := ukernel.MonitorCli()
+	// A snapshot is a saved guest, kernel and rootfs included, so hluk takes
+	// no kernel, initrd or scratch memory with it, only what to run in it.
+	if args.SnapshotPath != "" {
+		cmdArgs := []string{h.binaryPath, "snapshot", "run", args.SnapshotPath}
+		cmdArgs = append(cmdArgs, extraMonArgs.OtherArgs...)
+		return cmdArgs, nil
+	}
 	initrdPath := args.InitrdPath
 	if initrdPath == "" {
 		initrdPath = extraMonArgs.ExtraInitrd
