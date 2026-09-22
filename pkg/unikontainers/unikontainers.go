@@ -101,8 +101,10 @@ func New(bundlePath string, containerID string, rootDir string, cfg *UruncConfig
 		return nil, err
 	}
 	// hluk hands the command to the guest as one string that the guest
-	// splits again, so refuse a command that would not come out as given.
-	if hypervisors.VmmType(config.Hypervisor) == hypervisors.HyperlightVmm && spec.Process != nil {
+	// splits again, so refuse a command that would not come out as given. A
+	// native kernel, an image with a binary alone, gets no command at all.
+	nativeKernel := config.Initrd == "" && config.Snapshot == ""
+	if hypervisors.VmmType(config.Hypervisor) == hypervisors.HyperlightVmm && !nativeKernel && spec.Process != nil {
 		err = unikernels.ValidateHyperlightCommand(spec.Process.Args)
 		if err != nil {
 			return nil, err

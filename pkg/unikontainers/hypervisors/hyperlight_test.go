@@ -64,14 +64,6 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio"},
 		},
 		{
-			name: "MonitorCli ExtraInitrd is the fallback initrd",
-			args: types.ExecArgs{
-				UnikernelPath: "/unikernel/kernel",
-			},
-			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{ExtraInitrd: "/extra/initrd.cpio"}},
-			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--initrd", "/extra/initrd.cpio"},
-		},
-		{
 			name: "MonitorCli OtherArgs are appended verbatim",
 			args: types.ExecArgs{
 				InitrdPath: "/unikernel/initrd.cpio",
@@ -81,13 +73,56 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio", "--scratch-mb", "512", "--guest-exec=/entrypoint.py --fast"},
 		},
 		{
-			name: "no initrd is an error",
+			name: "snapshot resumes the guest instead of booting it",
+			args: types.ExecArgs{
+				SnapshotPath: "/unikernel/snapshot",
+			},
+			unikernel: &fakeUnikernel{},
+			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot"},
+		},
+		{
+			name: "snapshot with MonitorCli OtherArgs appended verbatim",
+			args: types.ExecArgs{
+				SnapshotPath: "/unikernel/snapshot",
+			},
+			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--guest-exec=/entrypoint.py", "--env=FOO=bar"}}},
+			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot", "--guest-exec=/entrypoint.py", "--env=FOO=bar"},
+		},
+		{
+			name: "snapshot takes no kernel, initrd or memory",
 			args: types.ExecArgs{
 				UnikernelPath: "/unikernel/kernel",
+				InitrdPath:    "/unikernel/initrd.cpio",
+				SnapshotPath:  "/unikernel/snapshot",
 				MemSizeB:      1024 * 1024 * 256,
 			},
 			unikernel: &fakeUnikernel{},
-			wantErr:   ErrHyperlightNoInitrd,
+			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot"},
+		},
+		{
+			name: "a kernel without an initrd boots a native kernel",
+			args: types.ExecArgs{
+				UnikernelPath: "/unikernel/kernel",
+				MemSizeB:      1024 * 1024 * 64,
+			},
+			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--env=FOO=bar"}}},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--scratch-mb", "64", "--env=FOO=bar"},
+		},
+		{
+			name: "a native kernel gets no guest command",
+			args: types.ExecArgs{
+				UnikernelPath: "/unikernel/kernel",
+			},
+			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--guest-exec=/app/server", "--env=FOO=bar"}}},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--env=FOO=bar"},
+		},
+		{
+			name: "neither an initrd nor a kernel is an error",
+			args: types.ExecArgs{
+				MemSizeB: 1024 * 1024 * 256,
+			},
+			unikernel: &fakeUnikernel{},
+			wantErr:   ErrHyperlightNothingToBoot,
 		},
 	}
 
