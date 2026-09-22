@@ -313,6 +313,26 @@ version, so the images that
 [hyperlight-unikraft](https://github.com/hyperlight-dev/hyperlight-unikraft)
 publishes for a release are the ones to build on for that release.
 
+An image may also set the `binary` annotation without an `initrd`. `hluk` then
+boots it as a native Unikraft kernel for Hyperlight, whose own `main()` is the
+workload, so the command line of the container does not reach it. An image
+needs at least one of the `binary`, `initrd` and `snapshot` annotations.
+
+An image can also carry a saved `hluk` snapshot instead of a kernel and an
+initrd, through the `com.urunc.unikernel.snapshot` annotation. It names a
+directory inside the image, written by `hluk snapshot save`, which `urunc`
+hands to `hluk snapshot run`, so the guest resumes from the saved state, with
+its runtime already initialized, instead of booting. A snapshot stands in for
+both the `binary` and the `initrd` annotations and cannot be combined with
+them. It is tied to the exact `hluk` release that saved it. Since the
+filesystem of a resumed guest is the one saved in the snapshot, the files that
+`urunc` adds to the initrd of a booted guest, such as the `/etc/hosts` and
+`/etc/hostname` of the container, do not reach it: the guest keeps the ones it
+was saved with. A snapshot does not say whether the saved guest has a runtime
+driver, so `urunc` passes it the command of the container as it is. The image
+of a guest without one, such as a native kernel, should declare no command,
+since `hluk` refuses to start such a guest with one.
+
 The command line of the container is passed to `hluk` through its
 `--guest-exec` option. It names a file inside the initrd along with its
 arguments, which the runtime driver of the guest executes. An empty command
