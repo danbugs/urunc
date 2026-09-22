@@ -124,10 +124,24 @@ func (c *UnikernelConfig) validate() error {
 	if c.Hypervisor == "" {
 		return fmt.Errorf("unikernel configuration is missing mandatory field: %s", annotHypervisor)
 	}
-	if c.UnikernelBinary == "" {
+	// The unikernel binary is what a monitor boots, so an image cannot do
+	// without one. hyperlight-unikraft is the exception: hluk embeds a
+	// kernel and takes the binary only as the kernel to boot instead.
+	if c.UnikernelBinary == "" && !c.hypervisorIs(hypervisors.HyperlightVmm) {
 		return fmt.Errorf("unikernel configuration is missing mandatory field: %s", annotBinary)
 	}
 	return nil
+}
+
+// hypervisorIs reports whether the hypervisor field names vmm, whether it
+// holds the plain value (the annotations of the spec) or the base64-encoded
+// one (urunc.json, which decode() has not yet touched when validate() runs).
+func (c *UnikernelConfig) hypervisorIs(vmm hypervisors.VmmType) bool {
+	if hypervisors.VmmType(c.Hypervisor) == vmm {
+		return true
+	}
+	decoded, err := base64.StdEncoding.DecodeString(c.Hypervisor)
+	return err == nil && hypervisors.VmmType(decoded) == vmm
 }
 
 // GetUnikernelConfig tries to get the Unikernel config from the bundle annotations.
