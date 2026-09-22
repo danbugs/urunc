@@ -37,20 +37,19 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 		wantErr   error
 	}{
 		{
-			name: "initrd and memory",
+			name: "kernel, initrd and memory",
 			args: types.ExecArgs{
 				UnikernelPath: "/unikernel/kernel",
 				InitrdPath:    "/unikernel/initrd.cpio",
 				MemSizeB:      1024 * 1024 * 256,
 			},
 			unikernel: &fakeUnikernel{},
-			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio", "--scratch-mb", "256"},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--initrd", "/unikernel/initrd.cpio", "--scratch-mb", "256"},
 		},
 		{
-			name: "the unikernel binary is never passed",
+			name: "no unikernel binary leaves the embedded kernel to hluk",
 			args: types.ExecArgs{
-				UnikernelPath: "/unikernel/kernel",
-				InitrdPath:    "/unikernel/initrd.cpio",
+				InitrdPath: "/unikernel/initrd.cpio",
 			},
 			unikernel: &fakeUnikernel{},
 			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio"},
@@ -70,7 +69,7 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 				UnikernelPath: "/unikernel/kernel",
 			},
 			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{ExtraInitrd: "/extra/initrd.cpio"}},
-			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/extra/initrd.cpio"},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--initrd", "/extra/initrd.cpio"},
 		},
 		{
 			name: "MonitorCli OtherArgs are appended verbatim",
