@@ -118,7 +118,9 @@ var solo5DevNameRe = regexp.MustCompile(`^[A-Za-z0-9]{1,67}$`)
 
 var ErrNotUnikernel = errors.New("this is not a unikernel container")
 
-// validate checks if the mandatory configuration fields are present.
+// validate checks if the mandatory configuration fields are present. It
+// expects decoded values: the annotations of the spec as the shim hands them
+// over, or a urunc.json that decode() has been through.
 func (c *UnikernelConfig) validate() error {
 	if c.UnikernelType == "" {
 		return fmt.Errorf("unikernel configuration is missing mandatory field: %s", annotType)
@@ -129,21 +131,10 @@ func (c *UnikernelConfig) validate() error {
 	// The unikernel binary is what a monitor boots, so an image cannot do
 	// without one. hyperlight-unikraft is the exception: hluk embeds a
 	// kernel and takes the binary only as the kernel to boot instead.
-	if c.UnikernelBinary == "" && !c.hypervisorIs(hypervisors.HyperlightVmm) {
+	if c.UnikernelBinary == "" && hypervisors.VmmType(c.Hypervisor) != hypervisors.HyperlightVmm {
 		return fmt.Errorf("unikernel configuration is missing mandatory field: %s", annotBinary)
 	}
 	return nil
-}
-
-// hypervisorIs reports whether the hypervisor field names vmm, whether it
-// holds the plain value (the annotations of the spec) or the base64-encoded
-// one (urunc.json, which decode() has not yet touched when validate() runs).
-func (c *UnikernelConfig) hypervisorIs(vmm hypervisors.VmmType) bool {
-	if hypervisors.VmmType(c.Hypervisor) == vmm {
-		return true
-	}
-	decoded, err := base64.StdEncoding.DecodeString(c.Hypervisor)
-	return err == nil && hypervisors.VmmType(decoded) == vmm
 }
 
 // GetUnikernelConfig tries to get the Unikernel config from the bundle annotations.
@@ -172,12 +163,14 @@ func GetUnikernelConfig(bundleDir string, spec *specs.Spec) (*UnikernelConfig, e
 		return nil, ErrNotUnikernel
 	}
 
-	err = jsonConf.validate()
+	// urunc.json holds its values base64-encoded, and validate() looks at
+	// the hypervisor's value, so decode first.
+	err = jsonConf.decode()
 	if err != nil {
 		return nil, ErrNotUnikernel
 	}
 
-	err = jsonConf.decode()
+	err = jsonConf.validate()
 	if err != nil {
 		return nil, ErrNotUnikernel
 	}
