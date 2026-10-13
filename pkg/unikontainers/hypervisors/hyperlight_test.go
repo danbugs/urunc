@@ -96,7 +96,7 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 				SnapshotPath:  "/unikernel/snapshot",
 				MemSizeB:      1024 * 1024 * 256,
 			},
-			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{ExtraInitrd: "/extra/initrd.cpio"}},
+			unikernel: &fakeUnikernel{},
 			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot"},
 		},
 		{
