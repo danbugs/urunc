@@ -64,14 +64,6 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio"},
 		},
 		{
-			name: "MonitorCli ExtraInitrd is the fallback initrd",
-			args: types.ExecArgs{
-				UnikernelPath: "/unikernel/kernel",
-			},
-			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{ExtraInitrd: "/extra/initrd.cpio"}},
-			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--initrd", "/extra/initrd.cpio"},
-		},
-		{
 			name: "MonitorCli OtherArgs are appended verbatim",
 			args: types.ExecArgs{
 				InitrdPath: "/unikernel/initrd.cpio",

@@ -85,13 +85,9 @@ func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) 
 		cmdArgs = append(cmdArgs, extraMonArgs.OtherArgs...)
 		return cmdArgs, nil
 	}
-	initrdPath := args.InitrdPath
-	if initrdPath == "" {
-		initrdPath = extraMonArgs.ExtraInitrd
-	}
 	// Without an initrd hluk has nothing to boot but a kernel, so fail
 	// here rather than let the guest start with no filesystem.
-	if initrdPath == "" {
+	if args.InitrdPath == "" {
 		return nil, ErrHyperlightNoInitrd
 	}
 
@@ -99,7 +95,7 @@ func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) 
 	if args.UnikernelPath != "" {
 		cmdArgs = append(cmdArgs, "--kernel", args.UnikernelPath)
 	}
-	cmdArgs = append(cmdArgs, "--initrd", initrdPath)
+	cmdArgs = append(cmdArgs, "--initrd", args.InitrdPath)
 	// hluk sizes the guest by its scratch memory in MiB. A limit too small
 	// to express in MiB is left to hluk's own default.
 	if memMiB := bytesToMiB(args.MemSizeB); memMiB > 0 {
