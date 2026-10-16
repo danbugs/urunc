@@ -49,6 +49,11 @@ func (ch *CloudHypervisor) UsesKVM() bool {
 	return true
 }
 
+// UsesHostNet reports that the guest gets its network through a tap device.
+func (ch *CloudHypervisor) UsesHostNet() bool {
+	return false
+}
+
 // SupportsControlSocket reports that Cloud Hypervisor exposes a control socket
 // (its REST API socket).
 func (ch *CloudHypervisor) SupportsControlSocket() bool {

@@ -54,6 +54,11 @@ func (h *Hyperlight) SupportsControlSocket() bool {
 	return false
 }
 
+// UsesHostNet reports that the guest gets its network through a tap device.
+func (h *Hyperlight) UsesHostNet() bool {
+	return false
+}
+
 // Path returns the path to the hluk binary.
 func (h *Hyperlight) Path() string {
 	return h.binaryPath

@@ -149,3 +149,17 @@ func TestGuestMemory(t *testing.T) {
 		})
 	}
 }
+
+// hostNetVMM is a monitor that opens the guest's sockets itself.
+type hostNetVMM struct{ types.VMM }
+
+func (hostNetVMM) UsesHostNet() bool { return true }
+
+func TestSetupGuestNetLeavesHostNetMonitorsAlone(t *testing.T) {
+	t.Parallel()
+	// An unknown network type would fail SetupNet, so success shows that the
+	// interface of the container was never looked at.
+	netArgs, err := setupGuestNet(hostNetVMM{}, "no-such-network", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, types.NetDevParams{HostNet: true}, netArgs)
+}
