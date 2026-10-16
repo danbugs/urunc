@@ -291,6 +291,17 @@ func (u *Unikontainer) SetRunningState() error {
 	return u.saveContainerState()
 }
 
+// setupGuestNet gives the guest its network: a tap for most monitors, or
+// the container's network namespace as it is for a monitor that opens the
+// guest's sockets itself.
+func setupGuestNet(vmm types.VMM, networkType string, uid, gid uint32) (types.NetDevParams, error) {
+	if hypervisors.VMMUsesHostNet(vmm) {
+		uniklog.Debug("monitor uses host sockets, leaving the container's interface untouched")
+		return types.NetDevParams{HostNet: true}, nil
+	}
+	return SetupNet(networkType, uid, gid)
+}
+
 // SetupNet creates the sandbox's network device (tap) in the current network
 // namespace and returns its parameters; uid and gid own the tap device.
 func SetupNet(networkType string, uid, gid uint32) (types.NetDevParams, error) {
@@ -411,7 +422,8 @@ func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm
 	}
 	res.Mounts = append(res.Mounts, rootfsMounts...)
 
-	res.Devices, err = getMonitorDevices(vmm.UsesKVM())
+	// A monitor that opens the guest's sockets itself never creates a tap.
+	res.Devices, err = getMonitorDevices(vmm.UsesKVM(), !hypervisors.VMMUsesHostNet(vmm))
 	if err != nil {
 		return res, fmt.Errorf("failed to get host devices for monitor: %w", err)
 	}
@@ -663,7 +675,7 @@ func (u *Unikontainer) Exec(metrics m.Writer) error {
 	}
 
 	// handle network
-	netArgs, err := SetupNet(u.getNetworkType(), u.Spec.Process.User.UID, u.Spec.Process.User.GID)
+	netArgs, err := setupGuestNet(vmm, u.getNetworkType(), u.Spec.Process.User.UID, u.Spec.Process.User.GID)
 	if err != nil {
 		uniklog.Errorf("failed to setup network: %v", err)
 		return err

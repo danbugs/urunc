@@ -20,6 +20,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 
+	"github.com/urunc-dev/urunc/pkg/unikontainers/hypervisors"
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
 )
 
@@ -49,15 +50,26 @@ func monitorOCISpec(spec *specs.Spec, monRes monitorResources, rootfsParams type
 	return &monSpec
 }
 
-// MonitorCapabilities returns the capability set the monitor process requires
+// MonitorCapabilities returns the capability set the monitor process of the
+// container requires; see monitorCapabilities.
+func (u *Unikontainer) MonitorCapabilities() *configs.Capabilities {
+	return monitorCapabilities(u.Spec, u.State.Annotations[annotHypervisor])
+}
+
+// monitorCapabilities returns the capability set the monitor process requires
 // to finalize the execution environment for the monitor. Currently, it consists
-// of the container's own set plus CAP_NET_ADMIN in all five sets.
+// of the container's own set plus CAP_NET_ADMIN in all five sets, except for a
+// monitor that opens the guest's sockets itself, which creates no tap and
+// gets the container's own set.
 // TODO: Narrow down to the extremely necessary capabilities.
-func MonitorCapabilities(spec *specs.Spec) *configs.Capabilities {
+func monitorCapabilities(spec *specs.Spec, vmmType string) *configs.Capabilities {
 	caps := specCapabilities(spec)
 	if caps == nil {
 		uniklog.Warn("The container declares no capabilities. The monitor inherits urunc's own set.")
 		return nil
+	}
+	if hypervisors.UsesHostNet(hypervisors.VmmType(vmmType)) {
+		return caps
 	}
 
 	for _, capab := range monCaps {

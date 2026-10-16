@@ -415,8 +415,9 @@ func changeRoot(rootfsDir string, pivot bool) error {
 }
 
 // getMonitorDevices returns the devices which are needed for the execution of
-// the monitor process
-func getMonitorDevices(needsKVM bool) ([]specs.LinuxDevice, error) {
+// the monitor process. needsTUN is false for a monitor that never creates a
+// tap device.
+func getMonitorDevices(needsKVM bool, needsTUN bool) ([]specs.LinuxDevice, error) {
 	nullDev, err := deviceFromHost("/dev/null")
 	if err != nil {
 		return nil, fmt.Errorf("could not get host device /dev/null: %w", err)
@@ -432,15 +433,17 @@ func getMonitorDevices(needsKVM bool) ([]specs.LinuxDevice, error) {
 	// created in the monitor rootfs is decided in Exec, which checks the
 	// network configuration. However, if the host does not have the "/dev/net/tun"
 	// device then simply skip it and fail later if the container requires network
-	tunDev, err := deviceFromHost("/dev/net/tun")
-	if err != nil {
-		if errors.Is(err, unix.ENOENT) {
-			uniklog.Warnf("could not find /dev/net/tun in host, skipping it")
+	if needsTUN {
+		tunDev, err := deviceFromHost("/dev/net/tun")
+		if err != nil {
+			if errors.Is(err, unix.ENOENT) {
+				uniklog.Warnf("could not find /dev/net/tun in host, skipping it")
+			} else {
+				return nil, fmt.Errorf("could not get host device /dev/net/tun: %w", err)
+			}
 		} else {
-			return nil, fmt.Errorf("could not get host device /dev/net/tun: %w", err)
+			devices = append(devices, tunDev)
 		}
-	} else {
-		devices = append(devices, tunDev)
 	}
 
 	if needsKVM {

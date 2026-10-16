@@ -46,6 +46,15 @@ type VMM interface {
 	Ok() error
 }
 
+// HostNetVMM is implemented by a monitor whose guest reaches the network
+// through sockets the monitor itself opens, rather than through a tap
+// device. Such a guest shares the container's network namespace as it is,
+// so the interface must be left untouched: redirecting its traffic to a tap
+// would take it away from those sockets.
+type HostNetVMM interface {
+	UsesHostNet() bool
+}
+
 type NetDevParams struct {
 	IP        string // The veth device IP
 	Mask      string // The veth device mask
@@ -54,6 +63,7 @@ type NetDevParams struct {
 	TapDev    string // The tap device name
 	MTU       int    // The MTU value of the tap device
 	DNSServer string // The nameserver of the container, empty if there is none
+	HostNet   bool   // The guest uses the monitor's sockets in the container's netns, no tap
 }
 
 type BlockDevParams struct {

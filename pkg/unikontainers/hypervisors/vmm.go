@@ -74,6 +74,23 @@ var vmmFactories = map[VmmType]VMMFactory{
 	},
 }
 
+// UsesHostNet reports whether the monitor of vmmType opens the sockets of the
+// guest itself (types.HostNetVMM), so that it needs no tap. It only looks at
+// the type of the monitor, which need not be installed.
+func UsesHostNet(vmmType VmmType) bool {
+	factory, exists := vmmFactories[vmmType]
+	if !exists {
+		return false
+	}
+	return VMMUsesHostNet(factory.createFunc(factory.binary, "", false))
+}
+
+// VMMUsesHostNet reports whether vmm opens the sockets of the guest itself.
+func VMMUsesHostNet(vmm types.VMM) bool {
+	hn, ok := vmm.(types.HostNetVMM)
+	return ok && hn.UsesHostNet()
+}
+
 func NewVMM(vmmType VmmType, monitors map[string]types.MonitorConfig) (vmm types.VMM, err error) {
 	defer func() {
 		if err != nil {

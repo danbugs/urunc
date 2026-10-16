@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/urunc-dev/urunc/pkg/unikontainers/hypervisors"
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
 )
 
@@ -263,7 +264,7 @@ func TestMonitorCapabilities(t *testing.T) {
 		t.Parallel()
 		spec := testSpec()
 
-		caps := MonitorCapabilities(spec)
+		caps := monitorCapabilities(spec, string(hypervisors.QemuVmm))
 
 		require.NotNil(t, caps)
 		for name, set := range map[string][]string{
@@ -286,7 +287,7 @@ func TestMonitorCapabilities(t *testing.T) {
 		spec := testSpec()
 		spec.Process.Capabilities.Bounding = []string{monCaps[0]}
 
-		caps := MonitorCapabilities(spec)
+		caps := monitorCapabilities(spec, string(hypervisors.QemuVmm))
 
 		require.NotNil(t, caps)
 		assert.Equal(t, []string{monCaps[0]}, caps.Bounding)
@@ -297,6 +298,6 @@ func TestMonitorCapabilities(t *testing.T) {
 		spec := testSpec()
 		spec.Process.Capabilities = nil
 
-		assert.Nil(t, MonitorCapabilities(spec))
+		assert.Nil(t, monitorCapabilities(spec, string(hypervisors.QemuVmm)))
 	})
 }

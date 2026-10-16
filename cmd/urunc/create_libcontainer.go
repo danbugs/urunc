@@ -141,7 +141,7 @@ func monitorProcess(cmd *cli.Command, u *unikontainers.Unikontainer, readyFile *
 		Cwd: "/",
 		// TODO set uid, gid and additional groups here
 		Init:         true,
-		Capabilities: unikontainers.MonitorCapabilities(u.Spec),
+		Capabilities: u.MonitorCapabilities(),
 		LogLevel:     strconv.Itoa(int(logrus.GetLevel())),
 		// The ready pipe's write end. It must be the only/first ExtraFile so the
 		// monitor inherits it at unikontainers.ReadyPipeFD:
