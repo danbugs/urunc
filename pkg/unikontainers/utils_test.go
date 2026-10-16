@@ -417,3 +417,38 @@ func TestGetDNSServer(t *testing.T) {
 		assert.Equal(t, "", getDNSServer(mounts))
 	})
 }
+
+func TestReadResolvConf(t *testing.T) {
+	t.Parallel()
+
+	t.Run("whole file, search domains included", func(t *testing.T) {
+		t.Parallel()
+		content := "search default.svc.cluster.local svc.cluster.local\nnameserver 10.96.0.10\noptions ndots:5\n"
+		resolvConf := filepath.Join(t.TempDir(), "resolv.conf")
+		assert.NoError(t, os.WriteFile(resolvConf, []byte(content), 0600))
+		mounts := []specs.Mount{
+			{Destination: "/etc/hostname", Source: "/dummy/hostname"},
+			{Destination: "/etc/resolv.conf", Source: resolvConf},
+		}
+
+		assert.Equal(t, content, readResolvConf(mounts))
+	})
+
+	t.Run("no resolv.conf mount", func(t *testing.T) {
+		t.Parallel()
+		mounts := []specs.Mount{
+			{Destination: "/etc/hostname", Source: "/dummy/hostname"},
+		}
+
+		assert.Equal(t, "", readResolvConf(mounts))
+	})
+
+	t.Run("missing resolv.conf file", func(t *testing.T) {
+		t.Parallel()
+		mounts := []specs.Mount{
+			{Destination: "/etc/resolv.conf", Source: filepath.Join(t.TempDir(), "resolv.conf")},
+		}
+
+		assert.Equal(t, "", readResolvConf(mounts))
+	})
+}

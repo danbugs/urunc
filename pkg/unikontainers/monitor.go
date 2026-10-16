@@ -127,6 +127,11 @@ func runMonitor(metrics m.Writer, ms monitorSpec) error {
 	}
 	metrics.Capture(m.TS17)
 
+	err = writeGuestResolvConf(&ms.ExecArgs, guestResolvConfPath)
+	if err != nil {
+		return err
+	}
+
 	// Create the socket directory after setupUser, so the monitor's user owns
 	// it and a non-root monitor can bind there. The monitor creates the socket.
 	if vmm.SupportsControlSocket() && ms.ExecArgs.SocketPath != "" {

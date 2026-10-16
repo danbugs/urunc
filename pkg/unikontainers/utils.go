@@ -377,14 +377,34 @@ func executeHook(hook specs.Hook, state []byte) error {
 	return nil
 }
 
-func getDNSServer(mounts []specs.Mount) string {
-	resolvConf := ""
+// resolvConfSource returns the host file mounted at the container's
+// /etc/resolv.conf, or "" when there is none.
+func resolvConfSource(mounts []specs.Mount) string {
 	for _, mount := range mounts {
 		if filepath.Clean(mount.Destination) == "/etc/resolv.conf" {
-			resolvConf = mount.Source
-			break
+			return mount.Source
 		}
 	}
+	return ""
+}
+
+// readResolvConf returns the content of the container's resolv.conf, or ""
+// when there is none.
+func readResolvConf(mounts []specs.Mount) string {
+	resolvConf := resolvConfSource(mounts)
+	if resolvConf == "" {
+		return ""
+	}
+	data, err := os.ReadFile(resolvConf)
+	if err != nil {
+		uniklog.Warnf("Failed to read %s: %v", resolvConf, err)
+		return ""
+	}
+	return string(data)
+}
+
+func getDNSServer(mounts []specs.Mount) string {
+	resolvConf := resolvConfSource(mounts)
 	if resolvConf == "" {
 		return ""
 	}

@@ -72,12 +72,18 @@ func (h *Hyperlight) UsesHostNet() bool {
 // A container expects the whole network of its namespace, outbound and
 // inbound, so the guest gets both, with no hluk policy on top: the namespace
 // and whatever NetworkPolicy applies to it stay the boundary, as they are
-// for any other container.
+// for any other container. The guest also gets the container's resolver
+// configuration: the rootfs, or a snapshot of a guest booted elsewhere,
+// carries its own, which knows nothing of the cluster's DNS.
 func netArgs(args types.ExecArgs) []string {
 	if !args.Net.HostNet {
 		return nil
 	}
-	return []string{"--net", "--port=all"}
+	cmdArgs := []string{"--net", "--port=all"}
+	if args.ResolvFile != "" {
+		cmdArgs = append(cmdArgs, "--resolv-conf="+args.ResolvFile)
+	}
+	return cmdArgs
 }
 
 // Path returns the path to the hluk binary.

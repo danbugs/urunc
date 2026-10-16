@@ -291,6 +291,38 @@ func (u *Unikontainer) SetRunningState() error {
 	return u.saveContainerState()
 }
 
+// guestResolvConfPath is where the resolv.conf of the container is written
+// for a monitor that installs it in the guest. The /tmp of the monitor rootfs
+// is a tmpfs that every user can write to, so the monitor writes it once it
+// runs as the container user, who then owns it.
+const guestResolvConfPath = "/tmp/urunc-resolv.conf"
+
+// resolvConfForMonitor returns the resolv.conf of the container for a monitor
+// that serves the guest's sockets itself: it installs the whole file in the
+// guest, search domains included, so that cluster names resolve as they do
+// in a container. The other monitors get "", and nothing is read for them.
+func resolvConfForMonitor(vmmType string, mounts []specs.Mount) string {
+	if !hypervisors.UsesHostNet(hypervisors.VmmType(vmmType)) {
+		return ""
+	}
+	return readResolvConf(mounts)
+}
+
+// writeGuestResolvConf writes the resolv.conf that args carries to path and
+// records it in args, for the monitor to hand to the guest. It runs before
+// the monitor is reported ready, so that a failure fails the start. There is
+// nothing to write without host networking or without a resolv.conf.
+func writeGuestResolvConf(args *types.ExecArgs, path string) error {
+	if !args.Net.HostNet || args.ResolvConf == "" {
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(args.ResolvConf), 0o600); err != nil {
+		return fmt.Errorf("failed to write the guest's resolv.conf: %w", err)
+	}
+	args.ResolvFile = path
+	return nil
+}
+
 // setupGuestNet gives the guest its network: a tap for most monitors, or
 // the container's network namespace as it is for a monitor that opens the
 // guest's sockets itself.
@@ -596,6 +628,8 @@ func (u *Unikontainer) buildMonitorSpec(rootfsParams types.RootfsParams, monRes 
 	// libcontainer and non-libcontainer paths, where the container mount
 	// sources are available.
 	mSpec.DNSServer = getDNSServer(u.Spec.Mounts)
+	// The mount sources are only reachable here.
+	mSpec.ExecArgs.ResolvConf = resolvConfForMonitor(vmmType, u.Spec.Mounts)
 
 	return mSpec
 }
@@ -771,6 +805,11 @@ func (u *Unikontainer) Exec(metrics m.Writer) error {
 	// uid/gid
 	// Setup uid, gid and additional groups for the monitor process
 	err = setupUser(u.Spec.Process.User)
+	if err != nil {
+		return err
+	}
+
+	err = writeGuestResolvConf(&vmmArgs, guestResolvConfPath)
 	if err != nil {
 		return err
 	}

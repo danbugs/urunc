@@ -222,3 +222,64 @@ func TestSetupGuestNetLeavesHostNetMonitorsAlone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, types.NetDevParams{HostNet: true}, netArgs)
 }
+
+// The resolv.conf of the container is written only for a guest on host
+// networking, readable by the monitor user alone, and recorded for the
+// monitor to pass on.
+func TestWriteGuestResolvConf(t *testing.T) {
+	t.Parallel()
+
+	const content = "nameserver 10.96.0.10\nsearch default.svc.cluster.local\n"
+
+	t.Run("host networking with a resolv.conf", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "resolv.conf")
+		args := types.ExecArgs{Net: types.NetDevParams{HostNet: true}, ResolvConf: content}
+
+		require.NoError(t, writeGuestResolvConf(&args, path))
+		assert.Equal(t, path, args.ResolvFile)
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, content, string(data))
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+	})
+
+	for name, args := range map[string]types.ExecArgs{
+		"no host networking": {ResolvConf: content},
+		"no resolv.conf":     {Net: types.NetDevParams{HostNet: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(t.TempDir(), "resolv.conf")
+
+			require.NoError(t, writeGuestResolvConf(&args, path))
+			assert.Empty(t, args.ResolvFile)
+			assert.NoFileExists(t, path)
+		})
+	}
+
+	t.Run("a failed write fails", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "missing", "resolv.conf")
+		args := types.ExecArgs{Net: types.NetDevParams{HostNet: true}, ResolvConf: content}
+
+		require.Error(t, writeGuestResolvConf(&args, path))
+		assert.Empty(t, args.ResolvFile)
+	})
+}
+
+// Only a monitor that installs the resolv.conf in the guest gets it read.
+func TestResolvConfForMonitor(t *testing.T) {
+	t.Parallel()
+
+	const content = "nameserver 10.96.0.10\n"
+	resolvConf := filepath.Join(t.TempDir(), "resolv.conf")
+	require.NoError(t, os.WriteFile(resolvConf, []byte(content), 0o600))
+	mounts := []specs.Mount{{Destination: "/etc/resolv.conf", Source: resolvConf}}
+
+	assert.Equal(t, content, resolvConfForMonitor(string(hypervisors.HyperlightVmm), mounts))
+	assert.Empty(t, resolvConfForMonitor(string(hypervisors.QemuVmm), mounts))
+	assert.Empty(t, resolvConfForMonitor(string(hypervisors.FirecrackerVmm), mounts))
+}
