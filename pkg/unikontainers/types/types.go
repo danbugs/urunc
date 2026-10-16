@@ -118,6 +118,7 @@ type ExecArgs struct {
 	Command       string   // The unikernel's command line
 	Seccomp       bool     // Enable or disable seccomp filters for the VMM
 	MemSizeB      uint64   // The size of the memory provided to the VM in bytes
+	ResolvFile    string   // The container's resolv.conf in the monitor rootfs, for a monitor that installs it in the guest; "" when the container has none
 	VCPUs         uint     // The number of vCPUs to allocate
 	UnikernelPath string   // The path of the unikernel inside rootfs
 	InitrdPath    string   // The path to the initrd of the unikernel

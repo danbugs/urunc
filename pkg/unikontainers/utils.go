@@ -377,14 +377,20 @@ func executeHook(hook specs.Hook, state []byte) error {
 	return nil
 }
 
-func getDNSServer(mounts []specs.Mount) string {
-	resolvConf := ""
-	for _, mount := range mounts {
-		if filepath.Clean(mount.Destination) == "/etc/resolv.conf" {
-			resolvConf = mount.Source
-			break
+// resolvConfSource returns the host file mounted at the container's
+// /etc/resolv.conf, or "" when there is none. Mounts apply in order, so the
+// last one is the file the container sees.
+func resolvConfSource(mounts []specs.Mount) string {
+	for i := len(mounts) - 1; i >= 0; i-- {
+		if filepath.Clean(mounts[i].Destination) == "/etc/resolv.conf" {
+			return mounts[i].Source
 		}
 	}
+	return ""
+}
+
+func getDNSServer(mounts []specs.Mount) string {
+	resolvConf := resolvConfSource(mounts)
 	if resolvConf == "" {
 		return ""
 	}

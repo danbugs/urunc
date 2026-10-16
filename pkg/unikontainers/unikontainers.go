@@ -221,7 +221,7 @@ func (u *Unikontainer) InitialSetup() error {
 		return fmt.Errorf("pre setup step for rootfs failed: %w", err)
 	}
 
-	monRes, err := getMonitorResources(rfsBuilder, rootfsParams, vmm, u.UruncCfg.Monitors[vmmType].DataPath)
+	monRes, err := getMonitorResources(rfsBuilder, rootfsParams, vmm, u.UruncCfg.Monitors[vmmType].DataPath, u.Spec.Mounts)
 	if err != nil {
 		return err
 	}
@@ -279,6 +279,38 @@ func (u *Unikontainer) Create(pid int, pidFilePath string) error {
 func (u *Unikontainer) SetRunningState() error {
 	u.State.Status = specs.StateRunning
 	return u.saveContainerState()
+}
+
+// guestResolvConfPath is where the resolv.conf of the container is mounted
+// in the monitor rootfs, for a monitor that installs it in the guest.
+const guestResolvConfPath = "/etc/resolv.conf"
+
+// resolvConfMount returns a read-only bind mount of the container's
+// resolv.conf into the monitor rootfs, for a monitor that serves the guest's
+// sockets itself: it installs the whole file in the guest, search domains
+// included, so that cluster names resolve as they do in a container, and the
+// guest follows the engine's file as a container does. The other monitors get
+// none, and neither does a container without a resolv.conf.
+func resolvConfMount(vmm types.VMM, cntrMounts []specs.Mount) (specs.Mount, bool) {
+	if !vmm.UsesHostNet() {
+		return specs.Mount{}, false
+	}
+	source := resolvConfSource(cntrMounts)
+	if source == "" {
+		return specs.Mount{}, false
+	}
+	return bindMount(source, guestResolvConfPath, true, true), true
+}
+
+// resolvFileForMonitor returns where the monitor finds the container's
+// resolv.conf in its rootfs, or "" when it is not mounted there.
+func resolvFileForMonitor(monMounts []specs.Mount) string {
+	for _, m := range monMounts {
+		if m.Destination == guestResolvConfPath {
+			return guestResolvConfPath
+		}
+	}
+	return ""
 }
 
 // setupGuestNet gives the guest its network: a tap for most monitors, or
@@ -398,7 +430,7 @@ func ChooseRootfs(bundle, specRoot string, annot map[string]string, cfg *UruncCo
 
 // getMonitorResources collects every mount and device required for the monitor's
 // execution environment, plus the block parameters passed to the guest.
-func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm types.VMM, monitorDataPath string) (monitorResources, error) {
+func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm types.VMM, monitorDataPath string, cntrMounts []specs.Mount) (monitorResources, error) {
 	var res monitorResources
 	var err error
 
@@ -411,6 +443,9 @@ func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm
 		return res, fmt.Errorf("failed to get mounts for monitor rootfs: %w", err)
 	}
 	res.Mounts = append(res.Mounts, rootfsMounts...)
+	if m, ok := resolvConfMount(vmm, cntrMounts); ok {
+		res.Mounts = append(res.Mounts, m)
+	}
 
 	// A monitor that opens the guest's sockets itself never creates a tap.
 	res.Devices, err = getMonitorDevices(vmm.UsesKVM(), !vmm.UsesHostNet())
@@ -582,10 +617,14 @@ func (u *Unikontainer) buildMonitorSpec(rootfsParams types.RootfsParams, monRes 
 	mSpec.ExecArgs = vmmArgs
 	mSpec.GuestParams = guest
 	mSpec.PreStartCmd = monRes.PreStartCmd
-	// Resolve the guest DNS server once, here in the builder shared by both the
-	// libcontainer and non-libcontainer paths, where the container mount
-	// sources are available.
-	mSpec.DNSServer = getDNSServer(u.Spec.Mounts)
+	// A monitor on host networking hands the container's resolv.conf, mounted
+	// in its rootfs, to the guest. The others get the nameserver out of it,
+	// resolved once here in the builder shared by both the libcontainer and
+	// non-libcontainer paths, where the container mount sources are available.
+	mSpec.ExecArgs.ResolvFile = resolvFileForMonitor(monRes.Mounts)
+	if mSpec.ExecArgs.ResolvFile == "" {
+		mSpec.DNSServer = getDNSServer(u.Spec.Mounts)
+	}
 
 	return mSpec
 }

@@ -163,3 +163,29 @@ func TestSetupGuestNetLeavesHostNetMonitorsAlone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, types.NetDevParams{HostNet: true}, netArgs)
 }
+
+// Only a monitor that serves the guest's sockets itself gets the container's
+// resolv.conf mounted into its rootfs, read-only, and only when there is one.
+func TestResolvConfMount(t *testing.T) {
+	t.Parallel()
+	mounts := []specs.Mount{{Destination: "/etc/resolv.conf", Source: "/run/engine/resolv.conf"}}
+
+	m, ok := resolvConfMount(hostNetVMM{}, mounts)
+	require.True(t, ok)
+	assert.Equal(t, "bind", m.Type)
+	assert.Equal(t, "/run/engine/resolv.conf", m.Source)
+	assert.Equal(t, guestResolvConfPath, m.Destination)
+	assert.Contains(t, m.Options, "ro")
+
+	_, ok = resolvConfMount(hostNetVMM{}, nil)
+	assert.False(t, ok, "a container without a resolv.conf mounts none")
+	_, ok = resolvConfMount(&hypervisors.Qemu{}, mounts)
+	assert.False(t, ok, "a tap-based monitor mounts none")
+}
+
+// The monitor is pointed at the resolv.conf only when it was mounted.
+func TestResolvFileForMonitor(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, guestResolvConfPath, resolvFileForMonitor([]specs.Mount{{Destination: "/proc"}, {Destination: guestResolvConfPath}}))
+	assert.Empty(t, resolvFileForMonitor([]specs.Mount{{Destination: "/proc"}}))
+}
