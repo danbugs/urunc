@@ -356,14 +356,23 @@ leaves the size to `hluk`, which gives each guest runtime the memory it is
 tested with (e.g. 256 MiB for Python, 1536 MiB for the agent image).
 
 [Hyperlight](https://github.com/hyperlight-dev/hyperlight) does not provide any
-VirtIO devices, nor a tap-based network interface. As a result, networking is
-not available for unikernels running on top of Hyperlight and, for the time
-being, initramfs is the only supported storage option. Neither virtio-block nor
-devmapper-backed block storage can be used.
+VirtIO devices, nor a tap-based network interface. Instead, `hluk` forwards the
+socket calls of the guest to real sockets that it opens itself. Since `hluk`
+runs inside the network namespace of the container, the guest uses that
+namespace as it is: the address of the pod, its routes, and any
+NetworkPolicy that applies to it. For that reason, `urunc` does not create a
+tap device for this monitor, nor does it redirect the traffic of the
+container's interface or give the monitor `CAP_NET_ADMIN` and `/dev/net/tun`,
+and it starts `hluk` with networking enabled, both
+outbound (`--net`) and inbound (`--port=all`). The network namespace remains the
+boundary, as for any other container. The `resolv.conf` of the container is
+installed in the guest as well (`--resolv-conf`), both when it boots and when it
+resumes from a snapshot, so that cluster names resolve inside the guest.
 
-Upstream `hluk` can preopen host directories for the guest and forward POSIX
-file operations to them, as well as forward the sockets of the guest to the
-host. We plan to add support for these options.
+For the time being, initramfs is the only supported storage option. Neither
+virtio-block nor devmapper-backed block storage can be used. Upstream `hluk`
+can also preopen host directories for the guest and forward POSIX file
+operations to them. We plan to add support for this option.
 
 Rootfs images for every guest runtime that `hluk` supports (Python, Node.js,
 .NET, Go, Rust, C, Bash and more) are published under
