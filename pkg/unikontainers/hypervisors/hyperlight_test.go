@@ -100,6 +100,24 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot"},
 		},
 		{
+			name: "host networking opens the pod's network to a booted guest",
+			args: types.ExecArgs{
+				InitrdPath: "/unikernel/initrd.cpio",
+				Net:        types.NetDevParams{HostNet: true},
+			},
+			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--guest-exec=/entrypoint.py"}}},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio", "--net", "--port=all", "--guest-exec=/entrypoint.py"},
+		},
+		{
+			name: "host networking opens the pod's network to a resumed guest",
+			args: types.ExecArgs{
+				SnapshotPath: "/unikernel/snapshot",
+				Net:          types.NetDevParams{HostNet: true},
+			},
+			unikernel: &fakeUnikernel{},
+			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot", "--net", "--port=all"},
+		},
+		{
 			name: "a kernel without an initrd boots a native kernel",
 			args: types.ExecArgs{
 				UnikernelPath: "/unikernel/kernel",
@@ -139,4 +157,12 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			assert.Equal(t, tc.expected, cmd)
 		})
 	}
+}
+
+func TestHyperlightUsesHostNet(t *testing.T) {
+	t.Parallel()
+	assert.True(t, VMMUsesHostNet(&Hyperlight{}), "hyperlight-unikraft must use host networking, not a tap")
+	assert.True(t, UsesHostNet(HyperlightVmm))
+	assert.False(t, UsesHostNet(QemuVmm))
+	assert.False(t, UsesHostNet("no-such-monitor"))
 }

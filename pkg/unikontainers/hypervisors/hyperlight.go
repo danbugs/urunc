@@ -58,6 +58,28 @@ func (h *Hyperlight) SupportsControlSocket() bool {
 	return false
 }
 
+// UsesHostNet reports that hluk serves the guest's sockets itself: each
+// guest socket call becomes a call on a real socket hluk opens, so the guest
+// shares the pod's network namespace, its address, routes and
+// NetworkPolicy, with no tap in between.
+func (h *Hyperlight) UsesHostNet() bool {
+	return true
+}
+
+// netArgs opens the network to a guest that runs in a container's network
+// namespace. hluk's default is no network at all, and --port alone only lets
+// the guest serve: it can then connect nowhere, not even to a DNS server.
+// A container expects the whole network of its namespace, outbound and
+// inbound, so the guest gets both, with no hluk policy on top: the namespace
+// and whatever NetworkPolicy applies to it stay the boundary, as they are
+// for any other container.
+func netArgs(args types.ExecArgs) []string {
+	if !args.Net.HostNet {
+		return nil
+	}
+	return []string{"--net", "--port=all"}
+}
+
 // Path returns the path to the hluk binary.
 func (h *Hyperlight) Path() string {
 	return h.binaryPath
@@ -87,6 +109,7 @@ func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) 
 	// no kernel, initrd or scratch memory with it, only what to run in it.
 	if args.SnapshotPath != "" {
 		cmdArgs := []string{h.binaryPath, "snapshot", "run", args.SnapshotPath}
+		cmdArgs = append(cmdArgs, netArgs(args)...)
 		cmdArgs = append(cmdArgs, extraMonArgs.OtherArgs...)
 		return cmdArgs, nil
 	}
@@ -116,6 +139,7 @@ func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) 
 	if memMiB := bytesToMiB(args.MemSizeB); memMiB > 0 {
 		cmdArgs = append(cmdArgs, "--scratch-mb", strconv.FormatUint(memMiB, 10))
 	}
+	cmdArgs = append(cmdArgs, netArgs(args)...)
 	cmdArgs = append(cmdArgs, otherArgs...)
 
 	return cmdArgs, nil

@@ -300,4 +300,16 @@ func TestMonitorCapabilities(t *testing.T) {
 
 		assert.Nil(t, monitorCapabilities(spec, string(hypervisors.QemuVmm)))
 	})
+
+	t.Run("a monitor without a tap keeps the container's own set", func(t *testing.T) {
+		t.Parallel()
+		spec := testSpec()
+
+		caps := monitorCapabilities(spec, string(hypervisors.HyperlightVmm))
+
+		require.NotNil(t, caps)
+		assert.NotContains(t, caps.Bounding, monCaps[0])
+		assert.NotContains(t, caps.Ambient, monCaps[0])
+		assert.Contains(t, caps.Bounding, "CAP_CHOWN")
+	})
 }
