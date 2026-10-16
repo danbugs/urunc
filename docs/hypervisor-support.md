@@ -274,12 +274,13 @@ typed host function calls, rather than through paravirtual devices.
 The host binary that `urunc` invokes is `hluk`, the CLI of the
 [hyperlight-unikraft](https://github.com/hyperlight-dev/hyperlight-unikraft)
 project. It embeds the Unikraft kernel it boots, so there is nothing else to
-install. Every release provides a prebuilt `hluk` for x86_64 Linux:
+install. Every release provides a prebuilt, statically linked `hluk` for
+x86_64 Linux:
 
 ```bash
 VERSION="v[[ versions["hyperlight-unikraft"] ]]"
 release_url="https://github.com/hyperlight-dev/hyperlight-unikraft/releases"
-curl -fsSL "${release_url}/download/${VERSION}/hluk-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar -xz
+curl -fsSL "${release_url}/download/${VERSION}/hluk-${VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar -xz
 ```
 
 Alternatively, `hluk` can be installed from
@@ -352,7 +353,7 @@ Supported unikernel frameworks with `urunc`:
 An example unikernel:
 
 ```bash
-sudo nerdctl run --rm -ti --runtime io.containerd.urunc.v2 ghcr.io/hyperlight-dev/hyperlight-unikraft/hello-urunc:v[[ versions["hyperlight-unikraft"] ]]
+sudo nerdctl run --rm -ti --runtime io.containerd.urunc.v2 docker.io/urunc/hello-hyperlight-unikraft:v[[ versions["hyperlight-unikraft"] ]]
 ```
 
 ## Software-based isolation monitors

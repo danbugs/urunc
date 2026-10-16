@@ -439,12 +439,12 @@ sudo mv cloud-hypervisor /usr/local/bin/
 
 [Hyperlight-unikraft](https://github.com/hyperlight-dev/hyperlight-unikraft)
 ships its host as the `hluk` binary, which embeds the Unikraft kernel it boots.
-Every release provides a prebuilt `hluk` for x86_64 Linux:
+Every release provides a prebuilt, statically linked `hluk` for x86_64 Linux:
 
 ```bash
 VERSION="v[[ versions["hyperlight-unikraft"] ]]"
 release_url="https://github.com/hyperlight-dev/hyperlight-unikraft/releases"
-curl -fsSL "${release_url}/download/${VERSION}/hluk-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar -xz
+curl -fsSL "${release_url}/download/${VERSION}/hluk-${VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar -xz
 sudo install -m0755 hluk /usr/local/bin/hluk
 rm -f hluk
 ```
