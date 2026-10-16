@@ -308,8 +308,10 @@ jobs:
         HYPERLIGHT_UNIKRAFT_VERSION: ${{ inputs.hyperlight_unikraft_version }}
       run: |
         SAFE_HYPERLIGHT_UNIKRAFT="${HYPERLIGHT_UNIKRAFT_VERSION}"
+        # The Linux release binaries are static (musl), so the runner's glibc
+        # does not matter.
         release_url="https://github.com/hyperlight-dev/hyperlight-unikraft/releases"
-        curl -fsSL "${release_url}/download/${SAFE_HYPERLIGHT_UNIKRAFT}/hluk-${SAFE_HYPERLIGHT_UNIKRAFT}-x86_64-unknown-linux-gnu.tar.gz" | tar -xz
+        curl -fsSL "${release_url}/download/${SAFE_HYPERLIGHT_UNIKRAFT}/hluk-${SAFE_HYPERLIGHT_UNIKRAFT}-x86_64-unknown-linux-musl.tar.gz" | tar -xz
         sudo install -m0755 hluk /usr/local/bin/hluk
         rm -f hluk
 
