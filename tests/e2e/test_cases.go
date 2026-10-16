@@ -663,7 +663,7 @@ func ctrTestCases() []containerTestArgs {
 			TestFunc:       matchTest,
 		},
 		{
-			Image:          "ghcr.io/hyperlight-dev/hyperlight-unikraft/hello-urunc:v0.17.0",
+			Image:          "docker.io/urunc/hello-hyperlight-unikraft:v0.18.0",
 			Name:           "Hyperlight-unikraft-hello",
 			Devmapper:      false,
 			Seccomp:        true,
