@@ -807,7 +807,7 @@ func TestNewWithoutBinary(t *testing.T) {
 	})
 
 	// urunc.json stores its values base64-encoded, so the monitor is only
-	// recognisable once decoded: the same two outcomes must hold there.
+	// recognizable once decoded: the same two outcomes must hold there.
 	t.Run("qemu without a binary in urunc.json still falls back to runc", func(t *testing.T) {
 		t.Parallel()
 		annots := validAnnots()
