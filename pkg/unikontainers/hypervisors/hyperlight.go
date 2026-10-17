@@ -110,8 +110,9 @@ func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) 
 	if args.InitrdPath != "" {
 		cmdArgs = append(cmdArgs, "--initrd", args.InitrdPath)
 	}
-	// hluk sizes the guest by its scratch memory in MiB. A limit too small
-	// to express in MiB is left to hluk's own default.
+	// hluk sizes the guest by its scratch memory in MiB. Without a size (the
+	// container has no memory limit), or with one too small to express in
+	// MiB, hluk picks the size the runtime of the rootfs is tested with.
 	if memMiB := bytesToMiB(args.MemSizeB); memMiB > 0 {
 		cmdArgs = append(cmdArgs, "--scratch-mb", strconv.FormatUint(memMiB, 10))
 	}
