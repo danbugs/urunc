@@ -325,9 +325,23 @@ The command line of the container is passed to `hluk` through its
 `--guest-exec` option. It names a file inside the initrd along with its
 arguments, which the runtime driver of the guest executes. An empty command
 line leaves the guest to its conventional entrypoint (`/entrypoint.py`,
-`/entrypoint` etc.). The memory of the container becomes the scratch memory of
-the guest (`--scratch-mb`) and the environment variables of the container are
-set in the guest (`--env`).
+`/entrypoint` etc.). The environment variables of the container are set in the
+guest (`--env`).
+
+`hluk` hands the command to the guest as a single string, which the runtime
+driver splits back into arguments on whitespace, without any quoting. For that
+reason, `urunc` refuses to create a container whose command has an empty
+argument, an argument with whitespace, a quote or a backslash, more than 63
+arguments or more than 4095 bytes in total, rather than run something other
+than what was asked. A command such as `sh -c "echo hi && sleep 1"` has to
+live in a script inside the initrd instead. Note that the Bash runtime driver
+runs the command line as shell code.
+
+A memory limit of the container becomes the scratch memory of the guest
+(`--scratch-mb`). Without a limit, `urunc` does not apply the
+`default_memory_mb` of the monitor, as it does for the rest of the VMMs, and
+leaves the size to `hluk`, which gives each guest runtime the memory it is
+tested with (e.g. 256 MiB for Python, 1536 MiB for the agent image).
 
 [Hyperlight](https://github.com/hyperlight-dev/hyperlight) does not provide any
 VirtIO devices, nor a tap-based network interface. As a result, networking is
