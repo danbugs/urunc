@@ -17,6 +17,7 @@ package hypervisors
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
 	"golang.org/x/sys/unix"
@@ -27,7 +28,10 @@ const (
 	HyperlightBinary string  = "hluk"
 )
 
-var ErrHyperlightNoInitrd = errors.New("hyperlight-unikraft requires an initrd")
+var ErrHyperlightNothingToBoot = errors.New("hyperlight-unikraft requires an initrd, a kernel or a snapshot")
+
+// hyperlightGuestExecOpt is the hluk option that carries the guest command.
+const hyperlightGuestExecOpt = "--guest-exec="
 
 type Hyperlight struct {
 	binaryPath string
@@ -74,8 +78,9 @@ func (h *Hyperlight) Signal(pid int, signal unix.Signal) error {
 // unikernel asks for through MonitorCli, such as the guest command. hluk
 // embeds a Unikraft kernel of its own, so the unikernel binary is passed as
 // --kernel, which boots it in place of the embedded one, and an image
-// without one is left to the embedded kernel. An image that ships a saved
-// snapshot is resumed instead of booted.
+// without one is left to the embedded kernel. An image with a kernel and no
+// initrd boots a native Unikraft kernel, which is the workload itself. An
+// image that ships a saved snapshot is resumed instead of booted.
 func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) ([]string, error) {
 	extraMonArgs := ukernel.MonitorCli()
 	// A snapshot is a saved guest, kernel and rootfs included, so hluk takes
@@ -85,25 +90,47 @@ func (h *Hyperlight) BuildExecCmd(args types.ExecArgs, ukernel types.Unikernel) 
 		cmdArgs = append(cmdArgs, extraMonArgs.OtherArgs...)
 		return cmdArgs, nil
 	}
-	// Without an initrd hluk has nothing to boot but a kernel, so fail
-	// here rather than let the guest start with no filesystem.
+	// With neither an initrd nor a kernel there is nothing to boot, so fail
+	// here rather than after the monitor started.
+	if args.InitrdPath == "" && args.UnikernelPath == "" {
+		return nil, ErrHyperlightNothingToBoot
+	}
+	otherArgs := extraMonArgs.OtherArgs
+	// A native kernel, booted without an initrd, runs its own main(): there
+	// is no runtime driver in it to run a guest command, and hluk refuses
+	// one. Leave the command out instead of failing the container.
 	if args.InitrdPath == "" {
-		return nil, ErrHyperlightNoInitrd
+		otherArgs = withoutGuestExec(otherArgs)
 	}
 
 	cmdArgs := []string{h.binaryPath, "run"}
 	if args.UnikernelPath != "" {
 		cmdArgs = append(cmdArgs, "--kernel", args.UnikernelPath)
 	}
-	cmdArgs = append(cmdArgs, "--initrd", args.InitrdPath)
+	if args.InitrdPath != "" {
+		cmdArgs = append(cmdArgs, "--initrd", args.InitrdPath)
+	}
 	// hluk sizes the guest by its scratch memory in MiB. A limit too small
 	// to express in MiB is left to hluk's own default.
 	if memMiB := bytesToMiB(args.MemSizeB); memMiB > 0 {
 		cmdArgs = append(cmdArgs, "--scratch-mb", strconv.FormatUint(memMiB, 10))
 	}
-	cmdArgs = append(cmdArgs, extraMonArgs.OtherArgs...)
+	cmdArgs = append(cmdArgs, otherArgs...)
 
 	return cmdArgs, nil
+}
+
+// withoutGuestExec returns args without the guest command.
+func withoutGuestExec(args []string) []string {
+	kept := make([]string, 0, len(args))
+	for _, arg := range args {
+		if strings.HasPrefix(arg, hyperlightGuestExecOpt) {
+			vmmLog.WithField("option", arg).Warn("a native kernel runs no guest command, leaving it out")
+			continue
+		}
+		kept = append(kept, arg)
+	}
+	return kept
 }
 
 // PreExec performs pre-execution setup. Hyperlight has no special pre-exec requirements.

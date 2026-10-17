@@ -174,6 +174,15 @@ func TestNewRefusesHyperlightCommandThatWouldBeSplit(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("a native kernel on hyperlight-unikraft runs no command", func(t *testing.T) {
+		t.Parallel()
+		annots := validAnnots()
+		annots[annotHypervisor] = string(hypervisors.HyperlightVmm)
+
+		_, err := New(writeBundleWithArgs(t, annots, shellArgs), "test-container", t.TempDir(), defaultUruncConfig())
+		assert.NoError(t, err)
+	})
+
 	t.Run("qemu", func(t *testing.T) {
 		t.Parallel()
 		_, err := New(writeBundleWithArgs(t, validAnnots(), shellArgs), "test-container", t.TempDir(), defaultUruncConfig())

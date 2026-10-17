@@ -100,13 +100,29 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot"},
 		},
 		{
-			name: "no initrd is an error",
+			name: "a kernel without an initrd boots a native kernel",
 			args: types.ExecArgs{
 				UnikernelPath: "/unikernel/kernel",
-				MemSizeB:      1024 * 1024 * 256,
+				MemSizeB:      1024 * 1024 * 64,
+			},
+			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--env=FOO=bar"}}},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--scratch-mb", "64", "--env=FOO=bar"},
+		},
+		{
+			name: "a native kernel gets no guest command",
+			args: types.ExecArgs{
+				UnikernelPath: "/unikernel/kernel",
+			},
+			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--guest-exec=/app/server", "--env=FOO=bar"}}},
+			expected:  []string{"/usr/local/bin/hluk", "run", "--kernel", "/unikernel/kernel", "--env=FOO=bar"},
+		},
+		{
+			name: "neither an initrd nor a kernel is an error",
+			args: types.ExecArgs{
+				MemSizeB: 1024 * 1024 * 256,
 			},
 			unikernel: &fakeUnikernel{},
-			wantErr:   ErrHyperlightNoInitrd,
+			wantErr:   ErrHyperlightNothingToBoot,
 		},
 	}
 
