@@ -413,6 +413,12 @@ func (c *UnikernelConfig) validateValues() error {
 	if !supportedGuestMonitorPairs[guestMonitorPair{monitor, c.UnikernelType}] {
 		return fmt.Errorf("unsupported guest monitor pair %s %s", c.Hypervisor, c.UnikernelType)
 	}
+	// hluk boots the guest from its initrd, boots a native kernel, or resumes
+	// a snapshot. An image with none of them has nothing to run, so refuse it
+	// here instead of failing after the whole setup.
+	if monitor == hypervisors.HyperlightVmm && c.Initrd == "" && c.UnikernelBinary == "" && c.Snapshot == "" {
+		return fmt.Errorf("%s requires %s, %s or %s", hypervisors.HyperlightVmm, annotInitrd, annotBinary, annotSnapshot)
+	}
 	// A snapshot is a saved hluk guest, kernel and rootfs included, so it
 	// stands in for both the binary and the initrd, and hluk refuses either
 	// alongside it. No other monitor can resume one.

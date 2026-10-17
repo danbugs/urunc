@@ -462,6 +462,9 @@ func TestValidateValuesGuestMonitorPairs(t *testing.T) {
 			annots := validAnnots()
 			annots[annotHypervisor] = string(pair.monitor)
 			annots[annotType] = pair.guest
+			if pair.monitor == hypervisors.HyperlightVmm {
+				annots[annotInitrd] = "/unikernel/initrd.cpio"
+			}
 
 			err := validateAnnots(annots)
 			assert.NoError(t, err, "Expected a supported guest monitor pair to be accepted")
@@ -925,6 +928,54 @@ func TestValidateValuesSnapshot(t *testing.T) {
 			if tc.wantErr {
 				assert.Error(t, err)
 				assert.ErrorContains(t, err, annotSnapshot, "Expected error to mention the annotation")
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+// hluk needs something to run: an initrd to boot, a native kernel, or a
+// snapshot to resume. A hyperlight-unikraft image with none is refused when
+// the container is created, not once the monitor is about to start.
+func TestValidateValuesHyperlightNeedsInitrdOrSnapshot(t *testing.T) {
+	t.Parallel()
+
+	hyperlight := string(hypervisors.HyperlightVmm)
+	testCases := []struct {
+		name    string
+		annots  map[string]string
+		wantErr bool
+	}{
+		{
+			name:    "nothing to boot",
+			annots:  map[string]string{annotType: unikernels.UnikraftUnikernel, annotHypervisor: hyperlight},
+			wantErr: true,
+		},
+		{
+			name:   "a native kernel alone",
+			annots: map[string]string{annotType: unikernels.UnikraftUnikernel, annotHypervisor: hyperlight, annotBinary: "/unikernel/kernel"},
+		},
+		{
+			name:   "an initrd",
+			annots: map[string]string{annotType: unikernels.UnikraftUnikernel, annotHypervisor: hyperlight, annotInitrd: "/unikernel/initrd.cpio"},
+		},
+		{
+			name:   "a binary and an initrd",
+			annots: map[string]string{annotType: unikernels.UnikraftUnikernel, annotHypervisor: hyperlight, annotBinary: "/unikernel/kernel", annotInitrd: "/unikernel/initrd.cpio"},
+		},
+		{
+			name:   "a snapshot",
+			annots: map[string]string{annotType: unikernels.UnikraftUnikernel, annotHypervisor: hyperlight, annotSnapshot: "/unikernel/snapshot"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateAnnots(tc.annots)
+			if tc.wantErr {
+				assert.ErrorContains(t, err, annotInitrd)
 				return
 			}
 			assert.NoError(t, err)
