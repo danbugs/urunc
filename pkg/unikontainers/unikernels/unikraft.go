@@ -142,9 +142,9 @@ func (u *Unikraft) MonitorCli() types.MonitorCliArgs {
 
 // hluk takes the guest command as a single string, which the runtime driver
 // in the guest splits back into argv: on whitespace, with no quoting, into at
-// most 63 arguments and fewer than 4096 bytes (the exec driver), or with
-// Python's shlex (the Python driver). A command survives that round trip
-// unchanged only within these bounds.
+// most 63 arguments and fewer than 4096 bytes (the exec driver), or the way
+// a POSIX shell would, quotes and backslashes included (the Python driver).
+// A command survives that round trip unchanged only within these bounds.
 const (
 	hyperlightMaxArgs     = 63
 	hyperlightMaxCmdBytes = 4095
@@ -152,10 +152,10 @@ const (
 
 // splitsHyperlightArg reports whether a guest driver would not read r as part
 // of an argument: whitespace splits it (the Node.js driver splits on any
-// Unicode space, BOM included), and a quote or a backslash is taken as
-// quoting by shlex.
+// Unicode space, byte order mark included), and a quote or a backslash is
+// taken as quoting by the Python driver.
 func splitsHyperlightArg(r rune) bool {
-	return unicode.IsSpace(r) || r == '\ufeff' || r == '\'' || r == '"' || r == '\\'
+	return unicode.IsSpace(r) || r == 0xFEFF || r == '\'' || r == '"' || r == '\\'
 }
 
 var ErrHyperlightCommand = errors.New("the command cannot be passed to hyperlight-unikraft unchanged")
