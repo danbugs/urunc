@@ -156,21 +156,22 @@ type noTapVMM struct{ types.VMM }
 func (noTapVMM) UsesTUNTAP() bool { return false }
 
 // Only a monitor that serves the guest's sockets itself gets the container's
-// resolv.conf mounted into its rootfs, read-only, and only when there is one.
-func TestResolvConfMount(t *testing.T) {
+// own resolv.conf mount in its rootfs, read-only, and only when there is one.
+func TestMonitorResolvConfMount(t *testing.T) {
 	t.Parallel()
-	mounts := []specs.Mount{{Destination: "/etc/resolv.conf", Source: "/run/engine/resolv.conf"}}
+	mounts := []specs.Mount{{Type: "bind", Destination: "/etc/resolv.conf/", Source: "/run/engine/resolv.conf", Options: []string{"rbind", "rprivate"}}}
 
-	m, ok := resolvConfMount(noTapVMM{}, mounts)
+	m, ok := monitorResolvConfMount(noTapVMM{}, mounts)
 	require.True(t, ok)
 	assert.Equal(t, "bind", m.Type)
 	assert.Equal(t, "/run/engine/resolv.conf", m.Source)
 	assert.Equal(t, guestResolvConfPath, m.Destination)
-	assert.Contains(t, m.Options, "ro")
+	assert.Equal(t, []string{"rbind", "rprivate", "ro"}, m.Options)
+	assert.Equal(t, []string{"rbind", "rprivate"}, mounts[0].Options, "the container's mount is left as it is")
 
-	_, ok = resolvConfMount(noTapVMM{}, nil)
+	_, ok = monitorResolvConfMount(noTapVMM{}, nil)
 	assert.False(t, ok, "a container without a resolv.conf mounts none")
-	_, ok = resolvConfMount(&hypervisors.Qemu{}, mounts)
+	_, ok = monitorResolvConfMount(&hypervisors.Qemu{}, mounts)
 	assert.False(t, ok, "a tap-based monitor mounts none")
 }
 

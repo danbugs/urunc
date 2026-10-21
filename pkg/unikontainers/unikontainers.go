@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -285,21 +286,26 @@ func (u *Unikontainer) SetRunningState() error {
 // in the monitor rootfs, for a monitor that installs it in the guest.
 const guestResolvConfPath = "/etc/resolv.conf"
 
-// resolvConfMount returns a read-only bind mount of the container's
-// resolv.conf into the monitor rootfs, for a monitor that serves the guest's
+// monitorResolvConfMount returns the container's own resolv.conf mount, to
+// apply in the monitor rootfs as well, for a monitor that serves the guest's
 // sockets itself: it installs the whole file in the guest, search domains
 // included, so that cluster names resolve as they do in a container, and the
-// guest follows the engine's file as a container does. The other monitors get
-// none, and neither does a container without a resolv.conf.
-func resolvConfMount(vmm types.VMM, cntrMounts []specs.Mount) (specs.Mount, bool) {
+// guest follows the engine's file as a container does. The monitor only
+// reads it, so it gets it read-only. The other monitors get none, and neither
+// does a container without a resolv.conf.
+func monitorResolvConfMount(vmm types.VMM, cntrMounts []specs.Mount) (specs.Mount, bool) {
 	if vmm.UsesTUNTAP() {
 		return specs.Mount{}, false
 	}
-	source := resolvConfSource(cntrMounts)
-	if source == "" {
+	m, ok := resolvConfMount(cntrMounts)
+	if !ok {
 		return specs.Mount{}, false
 	}
-	return bindMount(source, guestResolvConfPath, true, true), true
+	m.Destination = guestResolvConfPath
+	if !slices.Contains(m.Options, "ro") {
+		m.Options = append(slices.Clone(m.Options), "ro")
+	}
+	return m, true
 }
 
 // resolvFileForMonitor returns where the monitor finds the container's
@@ -453,7 +459,7 @@ func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm
 		return res, fmt.Errorf("failed to get mounts for monitor rootfs: %w", err)
 	}
 	res.Mounts = append(res.Mounts, rootfsMounts...)
-	if m, ok := resolvConfMount(vmm, cntrMounts); ok {
+	if m, ok := monitorResolvConfMount(vmm, cntrMounts); ok {
 		res.Mounts = append(res.Mounts, m)
 	}
 
