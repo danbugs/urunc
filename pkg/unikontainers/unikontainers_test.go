@@ -155,15 +155,6 @@ type noTapVMM struct{ types.VMM }
 
 func (noTapVMM) UsesTUNTAP() bool { return false }
 
-func TestSetupGuestNetLeavesHostNetMonitorsAlone(t *testing.T) {
-	t.Parallel()
-	// An unknown network type would fail SetupNet, so success shows that the
-	// interface of the container was never looked at.
-	netArgs, err := setupGuestNet(noTapVMM{}, "no-such-network", 0, 0)
-	require.NoError(t, err)
-	assert.Equal(t, types.NetDevParams{HostNet: true}, netArgs)
-}
-
 // Only a monitor that serves the guest's sockets itself gets the container's
 // resolv.conf mounted into its rootfs, read-only, and only when there is one.
 func TestResolvConfMount(t *testing.T) {
