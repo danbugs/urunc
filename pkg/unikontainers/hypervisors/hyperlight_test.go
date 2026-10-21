@@ -122,16 +122,16 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			args: types.ExecArgs{
 				SnapshotPath: "/unikernel/snapshot",
 				Net:          types.NetDevParams{IP: "10.244.1.7"},
-				ResolvFile:   "/tmp/urunc-resolv.conf",
+				ResolvConf:   true,
 			},
 			unikernel: &fakeUnikernel{},
-			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot", "--net", "--port=all", "--resolv-conf=/tmp/urunc-resolv.conf"},
+			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot", "--net", "--port=all", "--resolv-conf=/etc/resolv.conf"},
 		},
 		{
 			name: "a container without a network leaves the guest to hluk's default of none",
 			args: types.ExecArgs{
 				InitrdPath: "/unikernel/initrd.cpio",
-				ResolvFile: "/tmp/urunc-resolv.conf",
+				ResolvConf: true,
 			},
 			unikernel: &fakeUnikernel{},
 			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio"},

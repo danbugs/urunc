@@ -165,7 +165,7 @@ func TestMonitorResolvConfMount(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "bind", m.Type)
 	assert.Equal(t, "/run/engine/resolv.conf", m.Source)
-	assert.Equal(t, guestResolvConfPath, m.Destination)
+	assert.Equal(t, types.ResolvConfPath, m.Destination)
 	assert.Equal(t, []string{"rbind", "rprivate", "ro"}, m.Options)
 	assert.Equal(t, []string{"rbind", "rprivate"}, mounts[0].Options, "the container's mount is left as it is")
 
@@ -176,8 +176,8 @@ func TestMonitorResolvConfMount(t *testing.T) {
 }
 
 // The monitor is pointed at the resolv.conf only when it was mounted.
-func TestResolvFileForMonitor(t *testing.T) {
+func TestHasResolvConfMount(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, guestResolvConfPath, resolvFileForMonitor([]specs.Mount{{Destination: "/proc"}, {Destination: guestResolvConfPath}}))
-	assert.Empty(t, resolvFileForMonitor([]specs.Mount{{Destination: "/proc"}}))
+	assert.True(t, hasResolvConfMount([]specs.Mount{{Destination: "/proc"}, {Destination: types.ResolvConfPath}}))
+	assert.False(t, hasResolvConfMount([]specs.Mount{{Destination: "/proc"}}))
 }

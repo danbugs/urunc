@@ -78,8 +78,8 @@ func netArgs(args types.ExecArgs) []string {
 		return nil
 	}
 	cmdArgs := []string{"--net", "--port=all"}
-	if args.ResolvFile != "" {
-		cmdArgs = append(cmdArgs, "--resolv-conf="+args.ResolvFile)
+	if args.ResolvConf {
+		cmdArgs = append(cmdArgs, "--resolv-conf="+types.ResolvConfPath)
 	}
 	return cmdArgs
 }

@@ -282,10 +282,6 @@ func (u *Unikontainer) SetRunningState() error {
 	return u.saveContainerState()
 }
 
-// guestResolvConfPath is where the resolv.conf of the container is mounted
-// in the monitor rootfs, for a monitor that installs it in the guest.
-const guestResolvConfPath = "/etc/resolv.conf"
-
 // monitorResolvConfMount returns the container's own resolv.conf mount, to
 // apply in the monitor rootfs as well, for a monitor that serves the guest's
 // sockets itself: it installs the whole file in the guest, search domains
@@ -301,22 +297,22 @@ func monitorResolvConfMount(vmm types.VMM, cntrMounts []specs.Mount) (specs.Moun
 	if !ok {
 		return specs.Mount{}, false
 	}
-	m.Destination = guestResolvConfPath
+	m.Destination = types.ResolvConfPath
 	if !slices.Contains(m.Options, "ro") {
 		m.Options = append(slices.Clone(m.Options), "ro")
 	}
 	return m, true
 }
 
-// resolvFileForMonitor returns where the monitor finds the container's
-// resolv.conf in its rootfs, or "" when it is not mounted there.
-func resolvFileForMonitor(monMounts []specs.Mount) string {
+// hasResolvConfMount reports whether the container's resolv.conf is among
+// the mounts of the monitor rootfs.
+func hasResolvConfMount(monMounts []specs.Mount) bool {
 	for _, m := range monMounts {
-		if m.Destination == guestResolvConfPath {
-			return guestResolvConfPath
+		if m.Destination == types.ResolvConfPath {
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 // SetupNet gives the guest its network. A monitor on a tap gets one created in
@@ -632,12 +628,12 @@ func (u *Unikontainer) buildMonitorSpec(rootfsParams types.RootfsParams, monRes 
 	mSpec.ExecArgs = vmmArgs
 	mSpec.GuestParams = guest
 	mSpec.PreStartCmd = monRes.PreStartCmd
-	// A monitor on host networking hands the container's resolv.conf, mounted
-	// in its rootfs, to the guest. The others get the nameserver out of it,
+	// A monitor without a tap hands the container's resolv.conf, mounted in
+	// its rootfs, to the guest. The others get the nameserver out of it,
 	// resolved once here in the builder shared by both the libcontainer and
 	// non-libcontainer paths, where the container mount sources are available.
-	mSpec.ExecArgs.ResolvFile = resolvFileForMonitor(monRes.Mounts)
-	if mSpec.ExecArgs.ResolvFile == "" {
+	mSpec.ExecArgs.ResolvConf = hasResolvConfMount(monRes.Mounts)
+	if !mSpec.ExecArgs.ResolvConf {
 		mSpec.DNSServer = getDNSServer(u.Spec.Mounts)
 	}
 
