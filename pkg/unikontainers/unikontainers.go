@@ -459,7 +459,10 @@ func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm
 		res.Mounts = append(res.Mounts, m)
 	}
 
-	res.Devices, err = getMonitorDevices(vmm.UsesKVM(), vmm.UsesTUNTAP())
+	// Whether the monitor gets a tap is decided here, once, for its devices
+	// and for its capabilities.
+	res.TUNTAP = vmm.UsesTUNTAP()
+	res.Devices, err = getMonitorDevices(vmm.UsesKVM(), res.TUNTAP)
 	if err != nil {
 		return res, fmt.Errorf("failed to get host devices for monitor: %w", err)
 	}

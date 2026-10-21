@@ -15,12 +15,12 @@
 package unikontainers
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runtime-spec/specs-go"
 
-	"github.com/urunc-dev/urunc/pkg/unikontainers/hypervisors"
 	"github.com/urunc-dev/urunc/pkg/unikontainers/types"
 )
 
@@ -53,12 +53,11 @@ func monitorOCISpec(spec *specs.Spec, monRes monitorResources, rootfsParams type
 // MonitorCapabilities returns the capability set the monitor process of the
 // container requires; see monitorCapabilities.
 func (u *Unikontainer) MonitorCapabilities() (*configs.Capabilities, error) {
-	vmmType := u.State.Annotations[annotHypervisor]
-	vmm, err := hypervisors.NewVMM(hypervisors.VmmType(vmmType), u.UruncCfg.Monitors)
+	monRes, err := loadMonitorResources(u.BaseDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load monitor resources: %w", err)
 	}
-	return monitorCapabilities(u.Spec, vmm.UsesTUNTAP()), nil
+	return monitorCapabilities(u.Spec, monRes.TUNTAP), nil
 }
 
 // monitorCapabilities returns the capability set the monitor process requires
