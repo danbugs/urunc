@@ -41,12 +41,13 @@ type VMM interface {
 	Signal(int, unix.Signal) error
 	Path() string
 	UsesKVM() bool
-	// UsesHostNet reports whether the guest reaches the network through
-	// sockets the monitor itself opens in the container's network namespace,
-	// rather than through a tap device. urunc then leaves the interface of
-	// the container untouched: redirecting its traffic to a tap would take
-	// it away from those sockets.
-	UsesHostNet() bool
+	// UsesTUNTAP reports whether the guest gets its network through a tap
+	// device, which urunc creates in the container's network namespace and
+	// redirects the traffic of the container's interface to. A monitor that
+	// opens the guest's sockets itself, in that namespace, reports false, and
+	// urunc leaves the interface untouched: redirecting its traffic to a tap
+	// would take it away from those sockets.
+	UsesTUNTAP() bool
 	SupportsSharedfs(string) bool
 	SupportsControlSocket() bool
 	Ok() error

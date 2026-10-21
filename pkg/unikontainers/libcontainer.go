@@ -58,22 +58,21 @@ func (u *Unikontainer) MonitorCapabilities() (*configs.Capabilities, error) {
 	if err != nil {
 		return nil, err
 	}
-	return monitorCapabilities(u.Spec, vmm.UsesHostNet()), nil
+	return monitorCapabilities(u.Spec, vmm.UsesTUNTAP()), nil
 }
 
 // monitorCapabilities returns the capability set the monitor process requires
 // to finalize the execution environment for the monitor. Currently, it consists
-// of the container's own set plus CAP_NET_ADMIN in all five sets, except for a
-// monitor that opens the guest's sockets itself, which creates no tap and
-// gets the container's own set.
+// of the container's own set plus CAP_NET_ADMIN in all five sets for a monitor
+// that creates a tap. A monitor without one gets the container's own set.
 // TODO: Narrow down to the extremely necessary capabilities.
-func monitorCapabilities(spec *specs.Spec, hostNet bool) *configs.Capabilities {
+func monitorCapabilities(spec *specs.Spec, tuntap bool) *configs.Capabilities {
 	caps := specCapabilities(spec)
 	if caps == nil {
 		uniklog.Warn("The container declares no capabilities. The monitor inherits urunc's own set.")
 		return nil
 	}
-	if hostNet {
+	if !tuntap {
 		return caps
 	}
 

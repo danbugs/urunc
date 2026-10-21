@@ -94,9 +94,9 @@ func (fc *Firecracker) UsesKVM() bool {
 	return true
 }
 
-// UsesHostNet reports that the guest gets its network through a tap device.
-func (fc *Firecracker) UsesHostNet() bool {
-	return false
+// UsesTUNTAP reports that the guest gets its network through a tap device.
+func (fc *Firecracker) UsesTUNTAP() bool {
+	return true
 }
 
 // SupportsSharedfs returns a bool value depending on the monitor support for shared-fs

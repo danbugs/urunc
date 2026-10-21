@@ -54,12 +54,12 @@ func (h *Hyperlight) SupportsControlSocket() bool {
 	return false
 }
 
-// UsesHostNet reports that hluk serves the guest's sockets itself: each
-// guest socket call becomes a call on a real socket hluk opens, so the guest
-// shares the pod's network namespace, its address, routes and
+// UsesTUNTAP reports that hluk needs no tap: it serves the guest's sockets
+// itself, each guest socket call becoming a call on a real socket hluk opens,
+// so the guest shares the pod's network namespace, its address, routes and
 // NetworkPolicy, with no tap in between.
-func (h *Hyperlight) UsesHostNet() bool {
-	return true
+func (h *Hyperlight) UsesTUNTAP() bool {
+	return false
 }
 
 // netArgs opens the network to a guest that runs in a container's network

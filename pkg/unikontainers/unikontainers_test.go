@@ -150,16 +150,16 @@ func TestGuestMemory(t *testing.T) {
 	}
 }
 
-// hostNetVMM is a monitor that opens the guest's sockets itself.
-type hostNetVMM struct{ types.VMM }
+// noTapVMM is a monitor that opens the guest's sockets itself, with no tap.
+type noTapVMM struct{ types.VMM }
 
-func (hostNetVMM) UsesHostNet() bool { return true }
+func (noTapVMM) UsesTUNTAP() bool { return false }
 
 func TestSetupGuestNetLeavesHostNetMonitorsAlone(t *testing.T) {
 	t.Parallel()
 	// An unknown network type would fail SetupNet, so success shows that the
 	// interface of the container was never looked at.
-	netArgs, err := setupGuestNet(hostNetVMM{}, "no-such-network", 0, 0)
+	netArgs, err := setupGuestNet(noTapVMM{}, "no-such-network", 0, 0)
 	require.NoError(t, err)
 	assert.Equal(t, types.NetDevParams{HostNet: true}, netArgs)
 }
@@ -170,14 +170,14 @@ func TestResolvConfMount(t *testing.T) {
 	t.Parallel()
 	mounts := []specs.Mount{{Destination: "/etc/resolv.conf", Source: "/run/engine/resolv.conf"}}
 
-	m, ok := resolvConfMount(hostNetVMM{}, mounts)
+	m, ok := resolvConfMount(noTapVMM{}, mounts)
 	require.True(t, ok)
 	assert.Equal(t, "bind", m.Type)
 	assert.Equal(t, "/run/engine/resolv.conf", m.Source)
 	assert.Equal(t, guestResolvConfPath, m.Destination)
 	assert.Contains(t, m.Options, "ro")
 
-	_, ok = resolvConfMount(hostNetVMM{}, nil)
+	_, ok = resolvConfMount(noTapVMM{}, nil)
 	assert.False(t, ok, "a container without a resolv.conf mounts none")
 	_, ok = resolvConfMount(&hypervisors.Qemu{}, mounts)
 	assert.False(t, ok, "a tap-based monitor mounts none")

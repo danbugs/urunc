@@ -292,7 +292,7 @@ const guestResolvConfPath = "/etc/resolv.conf"
 // guest follows the engine's file as a container does. The other monitors get
 // none, and neither does a container without a resolv.conf.
 func resolvConfMount(vmm types.VMM, cntrMounts []specs.Mount) (specs.Mount, bool) {
-	if !vmm.UsesHostNet() {
+	if vmm.UsesTUNTAP() {
 		return specs.Mount{}, false
 	}
 	source := resolvConfSource(cntrMounts)
@@ -317,8 +317,8 @@ func resolvFileForMonitor(monMounts []specs.Mount) string {
 // the container's network namespace as it is for a monitor that opens the
 // guest's sockets itself.
 func setupGuestNet(vmm types.VMM, networkType string, uid, gid uint32) (types.NetDevParams, error) {
-	if vmm.UsesHostNet() {
-		uniklog.Debug("monitor uses host sockets, leaving the container's interface untouched")
+	if !vmm.UsesTUNTAP() {
+		uniklog.Debug("monitor uses no tap, leaving the container's interface untouched")
 		return types.NetDevParams{HostNet: true}, nil
 	}
 	return SetupNet(networkType, uid, gid)
@@ -447,8 +447,7 @@ func getMonitorResources(rfs rootfsBuilder, rootfsParams types.RootfsParams, vmm
 		res.Mounts = append(res.Mounts, m)
 	}
 
-	// A monitor that opens the guest's sockets itself never creates a tap.
-	res.Devices, err = getMonitorDevices(vmm.UsesKVM(), !vmm.UsesHostNet())
+	res.Devices, err = getMonitorDevices(vmm.UsesKVM(), vmm.UsesTUNTAP())
 	if err != nil {
 		return res, fmt.Errorf("failed to get host devices for monitor: %w", err)
 	}

@@ -51,9 +51,9 @@ func (q *Qemu) UsesKVM() bool {
 	return true
 }
 
-// UsesHostNet reports that the guest gets its network through a tap device.
-func (q *Qemu) UsesHostNet() bool {
-	return false
+// UsesTUNTAP reports that the guest gets its network through a tap device.
+func (q *Qemu) UsesTUNTAP() bool {
+	return true
 }
 
 // SupportsSharedfs returns a bool value depending on the monitor support for shared-fs

@@ -45,9 +45,9 @@ func (s *SPT) UsesKVM() bool {
 	return false
 }
 
-// UsesHostNet reports that the guest gets its network through a tap device.
-func (s *SPT) UsesHostNet() bool {
-	return false
+// UsesTUNTAP reports that the guest gets its network through a tap device.
+func (s *SPT) UsesTUNTAP() bool {
+	return true
 }
 
 // SupportsSharedfs returns a bool value depending on the monitor support for shared-fs
