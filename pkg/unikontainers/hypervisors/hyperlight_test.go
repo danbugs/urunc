@@ -100,35 +100,35 @@ func TestHyperlightBuildExecCmd(t *testing.T) {
 			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot"},
 		},
 		{
-			name: "host networking opens the pod's network to a booted guest",
+			name: "the network of the container is opened to a booted guest",
 			args: types.ExecArgs{
 				InitrdPath: "/unikernel/initrd.cpio",
-				Net:        types.NetDevParams{HostNet: true},
+				Net:        types.NetDevParams{IP: "10.244.1.7"},
 			},
 			unikernel: &fakeUnikernel{monitorCli: types.MonitorCliArgs{OtherArgs: []string{"--guest-exec=/entrypoint.py"}}},
 			expected:  []string{"/usr/local/bin/hluk", "run", "--initrd", "/unikernel/initrd.cpio", "--net", "--port=all", "--guest-exec=/entrypoint.py"},
 		},
 		{
-			name: "host networking opens the pod's network to a resumed guest",
+			name: "the network of the container is opened to a resumed guest",
 			args: types.ExecArgs{
 				SnapshotPath: "/unikernel/snapshot",
-				Net:          types.NetDevParams{HostNet: true},
+				Net:          types.NetDevParams{IP: "10.244.1.7"},
 			},
 			unikernel: &fakeUnikernel{},
 			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot", "--net", "--port=all"},
 		},
 		{
-			name: "host networking installs the container's resolv.conf in the guest",
+			name: "the container's resolv.conf is installed in a networked guest",
 			args: types.ExecArgs{
 				SnapshotPath: "/unikernel/snapshot",
-				Net:          types.NetDevParams{HostNet: true},
+				Net:          types.NetDevParams{IP: "10.244.1.7"},
 				ResolvFile:   "/tmp/urunc-resolv.conf",
 			},
 			unikernel: &fakeUnikernel{},
 			expected:  []string{"/usr/local/bin/hluk", "snapshot", "run", "/unikernel/snapshot", "--net", "--port=all", "--resolv-conf=/tmp/urunc-resolv.conf"},
 		},
 		{
-			name: "no resolv.conf without host networking",
+			name: "a container without a network leaves the guest to hluk's default of none",
 			args: types.ExecArgs{
 				InitrdPath: "/unikernel/initrd.cpio",
 				ResolvFile: "/tmp/urunc-resolv.conf",

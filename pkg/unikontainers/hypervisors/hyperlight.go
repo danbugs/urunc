@@ -62,17 +62,19 @@ func (h *Hyperlight) UsesTUNTAP() bool {
 	return false
 }
 
-// netArgs opens the network to a guest that runs in a container's network
-// namespace. hluk's default is no network at all, and --port alone only lets
-// the guest serve: it can then connect nowhere, not even to a DNS server.
-// A container expects the whole network of its namespace, outbound and
-// inbound, so the guest gets both, with no hluk policy on top: the namespace
-// and whatever NetworkPolicy applies to it stay the boundary, as they are
-// for any other container. The guest also gets the container's resolver
-// configuration: the rootfs, or a snapshot of a guest booted elsewhere,
-// carries its own, which knows nothing of the cluster's DNS.
+// netArgs opens the network of the container's namespace to the guest.
+// hluk's default is no network at all, and --port alone only lets the guest
+// serve: it can then connect nowhere, not even to a DNS server. A container
+// expects the whole network of its namespace, outbound and inbound, so the
+// guest gets both, with no hluk policy on top: the namespace and whatever
+// NetworkPolicy applies to it stay the boundary, as they are for any other
+// container. A container started with no network has no interface in its
+// namespace, and the guest is then left to hluk's default, as a second
+// boundary. The guest also gets the container's resolver configuration: the
+// rootfs, or a snapshot of a guest booted elsewhere, carries its own, which
+// knows nothing of the cluster's DNS.
 func netArgs(args types.ExecArgs) []string {
-	if !args.Net.HostNet {
+	if args.Net.IP == "" {
 		return nil
 	}
 	cmdArgs := []string{"--net", "--port=all"}
