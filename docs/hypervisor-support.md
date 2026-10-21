@@ -344,7 +344,9 @@ tap device for this monitor, nor does it redirect the traffic of the
 container's interface or give the monitor `CAP_NET_ADMIN` and `/dev/net/tun`,
 and it starts `hluk` with networking enabled, both
 outbound (`--net`) and inbound (`--port=all`). The network namespace remains the
-boundary, as for any other container. The `resolv.conf` of the container is
+boundary, as for any other container. A container started with no network has
+no interface in its namespace, and `urunc` then leaves the guest to the default
+of `hluk`, which is no network at all. The `resolv.conf` of the container is
 mounted into the monitor and installed in the guest as well (`--resolv-conf`),
 both when it boots and when it resumes from a snapshot, so that cluster names
 resolve inside the guest. The guest binds ports as the user of the container:
